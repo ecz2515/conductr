@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useAlbumStore } from "./store/albumStore";
 
 const SEARCH_MESSAGES = [
   "This can take up to a minute…",
@@ -12,6 +14,7 @@ const SEARCH_MESSAGES = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [canonical, setCanonical] = useState<any>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
@@ -45,12 +48,12 @@ export default function Home() {
     );
   }
 
-  async function handleAddToPlaylist() {
-    alert(
-      `Adding ${selectedAlbumIds.length} albums to playlist:\n\n${selectedAlbumIds.join(
-        "\n"
-      )}`
-    );
+  function handleAddToPlaylist() {
+    // Only continue if at least one album selected
+    if (selectedAlbumIds.length === 0) return;
+    const selectedAlbums = completeAlbums.filter(a => selectedAlbumIds.includes(a.id));
+    useAlbumStore.getState().setAlbums(selectedAlbums);  // Save albums globally
+    router.push(`/reorder?ids=${selectedAlbumIds.join(",")}`);
   }
 
   async function handleSubmit(e: React.FormEvent) {
