@@ -49,9 +49,14 @@ export default function Home() {
   }
 
   function handleAddToPlaylist() {
+    console.log('handleAddToPlaylist called');
+    console.log('selectedAlbumIds:', selectedAlbumIds);
+    console.log('completeAlbums:', completeAlbums);
+    
     // Only continue if at least one album selected
     if (selectedAlbumIds.length === 0) return;
     const selectedAlbums = completeAlbums.filter(a => selectedAlbumIds.includes(a.id));
+    console.log('selectedAlbums to save:', selectedAlbums);
     useAlbumStore.getState().setAlbums(selectedAlbums);  // Save albums globally
     router.push(`/reorder?ids=${selectedAlbumIds.join(",")}`);
   }

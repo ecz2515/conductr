@@ -1,11 +1,10 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useAlbumStore } from "../store/albumStore";
 import type { Album } from "../store/albumStore";
 
 export default function ReorderPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,45 +19,53 @@ export default function ReorderPage() {
   }, [searchParams]);
 
   function moveUp(index: number) {
-    if (index === 0) return; // Already at top
+    if (index === 0) return;
     setMovingIndex(index);
-    
     setTimeout(() => {
       const newAlbums = [...albums];
       const temp = newAlbums[index];
       newAlbums[index] = newAlbums[index - 1];
       newAlbums[index - 1] = temp;
       setAlbums(newAlbums);
-      
-      setTimeout(() => {
-        setMovingIndex(null);
-      }, 300);
+      setTimeout(() => setMovingIndex(null), 300);
     }, 150);
   }
 
   function moveDown(index: number) {
-    if (index === albums.length - 1) return; // Already at bottom
+    if (index === albums.length - 1) return;
     setMovingIndex(index);
-    
     setTimeout(() => {
       const newAlbums = [...albums];
       const temp = newAlbums[index];
       newAlbums[index] = newAlbums[index + 1];
       newAlbums[index + 1] = temp;
       setAlbums(newAlbums);
-      
-      setTimeout(() => {
-        setMovingIndex(null);
-      }, 300);
+      setTimeout(() => setMovingIndex(null), 300);
     }, 150);
   }
 
   function handleConfirm() {
-    router.push("/playlist/create");
+    const ids = albums.map(album => album.id).join(",");
+    // Encode the full album data as base64 to pass through URL
+    const albumData = btoa(JSON.stringify(albums));
+    const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
+    const redirectUri = "http://127.0.0.1:3000/playlist/create"; // or use your env var
+    const scopes = [
+      "playlist-modify-public",
+      "playlist-modify-private"
+    ].join(" ");
+    const spotifyAuthorizeUrl =
+      `https://accounts.spotify.com/authorize?response_type=code` +
+      `&client_id=${encodeURIComponent(clientId ?? "")}` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&state=${encodeURIComponent(ids + "|" + albumData)}`;
+    window.location.href = spotifyAuthorizeUrl;
   }
+  
 
   function handleBack() {
-    router.push("/");
+    window.location.href = "/";
   }
 
   if (loading) {
@@ -105,14 +112,15 @@ export default function ReorderPage() {
                 group
                 ${movingIndex === idx ? 'z-10' : ''}
               `}
-              style={{ 
+              style={{
                 minHeight: "112px",
                 transform: movingIndex === idx ? "scale(1.02)" : "scale(1)",
                 opacity: movingIndex === idx ? 0.8 : 1,
-                boxShadow: movingIndex === idx ? "0 10px 30px rgba(30, 215, 96, 0.3)" : "0 4px 6px rgba(0, 0, 0, 0.1)"
+                boxShadow: movingIndex === idx
+                  ? "0 10px 30px rgba(30, 215, 96, 0.3)"
+                  : "0 4px 6px rgba(0, 0, 0, 0.1)"
               }}
             >
-              {/* Up/Down buttons */}
               <div className="flex flex-col gap-2 mr-2 p-2 bg-[#191414] rounded-xl border border-[#333]">
                 <button
                   onClick={() => moveUp(idx)}
@@ -121,8 +129,8 @@ export default function ReorderPage() {
                     flex items-center justify-center h-8 w-8 rounded-lg
                     bg-[#232323] text-[#b3b3b3] hover:bg-[#2a2a2a] active:bg-[#1ed760]/20
                     transition-all duration-150 select-none border border-[#444]
-                    ${idx === 0 
-                      ? 'opacity-30 cursor-not-allowed' 
+                    ${idx === 0
+                      ? 'opacity-30 cursor-not-allowed'
                       : 'hover:text-[#1ed760] hover:scale-110 hover:border-[#1ed760]/50'
                     }
                   `}
@@ -139,8 +147,8 @@ export default function ReorderPage() {
                     flex items-center justify-center h-8 w-8 rounded-lg
                     bg-[#232323] text-[#b3b3b3] hover:bg-[#2a2a2a] active:bg-[#1ed760]/20
                     transition-all duration-150 select-none border border-[#444]
-                    ${idx === albums.length - 1 
-                      ? 'opacity-30 cursor-not-allowed' 
+                    ${idx === albums.length - 1
+                      ? 'opacity-30 cursor-not-allowed'
                       : 'hover:text-[#1ed760] hover:scale-110 hover:border-[#1ed760]/50'
                     }
                   `}
@@ -190,7 +198,6 @@ export default function ReorderPage() {
           </button>
         </div>
       </div>
-      {/* Animation keyframes */}
       <style jsx global>{`
         @keyframes expand {
           0% { opacity: 0; transform: scale(0.97) translateY(20px);}
