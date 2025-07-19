@@ -54,13 +54,7 @@ export default function ReorderPage() {
   }
 
   function handleConfirm() {
-    // You can save this order, send it to an API, or navigate to the next step
-    alert(
-      `Final playlist order:\n\n${albums
-        .map(a => `${a.orchestra || ''} ${a.conductor || ''} (${a.release_date?.substring(0,4) || ''})`)
-        .join('\n')}`
-    );
-    // Example: router.push("/playlist");
+    router.push("/playlist/create");
   }
 
   function handleBack() {
