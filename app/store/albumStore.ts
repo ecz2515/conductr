@@ -7,6 +7,9 @@ export type Album = {
   orchestra?: string;
   release_date?: string;
   uri?: string;
+  composer?: string;
+  work_title?: string;
+  movementTitles?: string[];
 };
 
 type AlbumStore = {
