@@ -57,7 +57,19 @@ export default function Home() {
     if (selectedAlbumIds.length === 0) return;
     const selectedAlbums = completeAlbums.filter(a => selectedAlbumIds.includes(a.id));
     console.log('selectedAlbums to save:', selectedAlbums);
-    useAlbumStore.getState().setAlbums(selectedAlbums);  // Save albums globally
+    
+    // Save albums and search context globally
+    console.log('Setting albums:', selectedAlbums);
+    console.log('Setting search context:', { originalQuery: query, canonical: canonical });
+    
+    useAlbumStore.getState().setAlbums(selectedAlbums);
+    useAlbumStore.getState().setSearchContext({
+      originalQuery: query,
+      canonical: canonical
+    });
+    
+    console.log('Album store state after setting:', useAlbumStore.getState());
+    
     router.push(`/reorder?ids=${selectedAlbumIds.join(",")}`);
   }
 

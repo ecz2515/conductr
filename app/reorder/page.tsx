@@ -14,6 +14,12 @@ export default function ReorderPage() {
   useEffect(() => {
     const ids = searchParams.get("ids")?.split(",").filter(Boolean) ?? [];
     const storedAlbums = useAlbumStore.getState().getAlbumsByIds(ids);
+    const searchContext = useAlbumStore.getState().getSearchContext();
+    
+    console.log('Reorder page - IDs:', ids);
+    console.log('Reorder page - Stored albums:', storedAlbums);
+    console.log('Reorder page - Search context:', searchContext);
+    
     setAlbums(storedAlbums);
     setLoading(false);
   }, [searchParams]);
