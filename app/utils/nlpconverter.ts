@@ -14,19 +14,20 @@ const openai = new OpenAI({
 });
 
 const SYSTEM_PROMPT = `
-You are a classical music librarian. 
+You are a classical music librarian.
 Given a user query for a piece, always return the best-guess canonical data as a JSON object:
 
 {
   composer: (string, full name, e.g. "Dmitri Shostakovich"),
-  work: (string, full title, e.g. "Symphony No. 7 in C major, Op. 60 'Leningrad'"),
+  work: (string, full title in the original language, e.g. "Symphony No. 7 in C major, Op. 60 'Leningrad'"),
   movement: (optional, string, e.g. "III. Adagio"),
   movementNumber: (optional, integer, e.g. 3),
   catalog: (optional, e.g. "Op. 60", "K. 525"),
   rawInput: (string, the original user input)
 }
 
-Never say anything outside the JSON. If movement isn't specified, leave it out. If catalog isn't known, omit it.
+- If the user provides a translated or alternate title, resolve it to the canonical/original title in the "work" field, and include any well-known alternate or translated titles in parentheses or quotes after the canonical title. For example: "Tod und Verklärung, Op. 24 ('Death and Transfiguration')".
+- Never say anything outside the JSON. If movement isn't specified, leave it out. If catalog isn't known, omit it.
 `;
 
 export async function nlpToCanonicalPiece(query: string): Promise<CanonicalPiece> {
