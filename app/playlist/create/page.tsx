@@ -66,7 +66,7 @@ export default function PlaylistCreatePage() {
     }
   }, []);
 
-  async function createPlaylist() {
+  async function createPlaylist(name: string, description: string) {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
     const stateParam = urlParams.get("state");
@@ -145,11 +145,11 @@ export default function PlaylistCreatePage() {
     setCurrentStep("Creating playlist...");
     
     // 5. Create playlist with custom name
-    const finalPlaylistName = playlistName || (searchContext.canonical.movement 
+    const finalPlaylistName = name || (searchContext.canonical.movement 
       ? `${searchContext.canonical.composer}: ${searchContext.canonical.work} - ${searchContext.canonical.movement}`
       : `${searchContext.canonical.composer}: ${searchContext.canonical.work}`);
       
-    const finalDescription = playlistDescription || `Created with Conductr`;
+    const finalDescription = description || `Created with Conductr`;
           
     const playlistResp = await fetch(
       `https://api.spotify.com/v1/users/${user.id}/playlists`,
@@ -273,7 +273,7 @@ export default function PlaylistCreatePage() {
           </p>
 
           {/* Playlist Info Card */}
-          <div className="bg-[#181818] rounded-xl p-6 mb-8 border border-[#282828]">
+          {/* <div className="bg-[#181818] rounded-xl p-6 mb-8 border border-[#282828]">
             <div className="flex items-center justify-center mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-[#1ed760] to-[#1db954] rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24">
@@ -285,7 +285,7 @@ export default function PlaylistCreatePage() {
             <p className="text-[#b3b3b3] text-sm">
               Your playlist is now available on Spotify with carefully selected tracks.
             </p>
-          </div>
+          </div> */}
 
           {/* Action Buttons */}
           <div className="space-y-4">
@@ -388,18 +388,12 @@ export default function PlaylistCreatePage() {
           
           <div className="flex gap-3 mt-8">
             <button
-              onClick={() => setShowPlaylistForm(false)}
-              className="flex-1 bg-[#232323] hover:bg-[#333] text-white font-semibold px-4 py-3 rounded-lg transition"
-            >
-              Back
-            </button>
-            <button
               onClick={() => {
                 setShowPlaylistForm(false);
                 setLoading(true);
                 setCurrentStep("Starting playlist creation...");
                 // Continue with playlist creation
-                createPlaylist();
+                createPlaylist(playlistName, playlistDescription);
               }}
               className="flex-1 bg-[#1ed760] hover:bg-[#1db954] text-black font-semibold px-4 py-3 rounded-lg transition"
             >

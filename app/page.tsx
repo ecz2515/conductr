@@ -185,7 +185,7 @@ export default function Home() {
           >
             <input
               type="text"
-              placeholder="e.g. Shosty 7 mvt 3"
+              placeholder='e.g. "Mozart Jupiter" or "Tchaik 6"'
               value={query}
               onChange={e => setQuery(e.target.value)}
               className={`w-full sm:flex-1 bg-[#181818] text-white px-5 py-3 rounded-lg outline-none focus:ring-2 focus:ring-[#1ed760] text-base sm:text-lg transition mb-3 sm:mb-0 border border-[#1ed760]${(isLoading || isSearching) ? ' opacity-60 cursor-not-allowed' : ''}`}
@@ -396,7 +396,7 @@ export default function Home() {
         )}
       </main>
       <footer className="text-[#b3b3b3] text-xs mt-8 mb-4 text-center px-3">
-        Built with ❤️ for classical musicians • Not affiliated with Spotify
+        Built with ❤️ for conductors • Not affiliated with Spotify
       </footer>
       {/* Animation keyframes */}
       <style jsx global>{`
