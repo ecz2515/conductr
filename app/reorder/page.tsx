@@ -70,10 +70,6 @@ export default function ReorderPage() {
   }
   
 
-  function handleBack() {
-    window.location.href = "/";
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#191414] to-[#222326]">
@@ -191,14 +187,8 @@ export default function ReorderPage() {
         </div>
         <div className="flex gap-4 mt-10 w-full">
           <button
-            onClick={handleBack}
-            className="w-1/2 bg-[#191414] hover:bg-[#232323] text-white font-bold px-6 py-3 rounded-full transition text-lg"
-          >
-            Back
-          </button>
-          <button
             onClick={handleConfirm}
-            className="w-1/2 bg-[#1ed760] hover:bg-[#1db954] text-black font-bold px-6 py-3 rounded-full transition text-lg shadow"
+            className="w-full bg-[#1ed760] hover:bg-[#1db954] text-black font-bold px-6 py-3 rounded-full transition text-lg shadow"
           >
             Confirm Order
           </button>

@@ -188,14 +188,14 @@ export default function Home() {
               placeholder="e.g. Shosty 7 mvt 3"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              className="w-full sm:flex-1 bg-[#181818] text-white px-5 py-3 rounded-lg outline-none focus:ring-2 focus:ring-[#1ed760] text-base sm:text-lg transition mb-3 sm:mb-0 border border-[#1ed760]"
+              className={`w-full sm:flex-1 bg-[#181818] text-white px-5 py-3 rounded-lg outline-none focus:ring-2 focus:ring-[#1ed760] text-base sm:text-lg transition mb-3 sm:mb-0 border border-[#1ed760]${(isLoading || isSearching) ? ' opacity-60 cursor-not-allowed' : ''}`}
               autoFocus
-              disabled={isLoading}
+              disabled={isLoading || isSearching}
             />
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full sm:w-auto bg-[#1ed760] hover:bg-[#1db954] text-black font-semibold px-6 py-3 rounded-lg transition shadow-md text-base sm:text-lg flex items-center justify-center min-w-[120px]"
+              disabled={isLoading || isSearching}
+              className={`w-full sm:w-auto bg-[#1ed760] hover:bg-[#1db954] text-black font-semibold px-6 py-3 rounded-lg transition shadow-md text-base sm:text-lg flex items-center justify-center min-w-[120px]${(isLoading || isSearching) ? ' opacity-60 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
                 <Spinner />

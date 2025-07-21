@@ -59,7 +59,7 @@ export default function PlaylistCreatePage() {
         : `${searchContext.canonical.composer}: ${searchContext.canonical.work}`;
       
       setPlaylistName(defaultName);
-      setPlaylistDescription(`Created with Conductr - ${searchContext.originalQuery}`);
+      setPlaylistDescription(`Created with Conductr`);
       setShowPlaylistForm(true);
     } else {
       setError("Search context not found. Please go back and try again.");

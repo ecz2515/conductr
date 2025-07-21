@@ -86,7 +86,7 @@ Here is a Spotify album:
 
 Based on the album metadata and your knowledge of classical discography, answer:
 1. Does this album most likely contain a complete recording of the user's requested work (not just a single movement or excerpt)? Only say "true" if you are quite certain.
-2. What is the likely conductor and orchestra (guess from artist/album name if possible)?
+2. What is the conductor and orchestra (guess from artist/album name if possible)? If you are not sure, leave blank.
 
 Output JSON like:
 {
