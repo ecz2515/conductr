@@ -167,7 +167,10 @@ export default function Home() {
         {/* Title */}
         <div className={`flex flex-col items-center w-full ${mainTopSpacing} transition-all duration-700 px-3`}>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight drop-shadow-lg mb-2 text-center">
-            Classical Playlist Builder
+            {albums && !isSearching && albums.length > 0
+              ? "Select the recordings you want to include in your playlist"
+              : "Classical Playlist Builder For Conductors"
+            }
           </h1>
           {!albums && !awaitingConfirmation && !isLoading && (
             <p className="text-base sm:text-lg text-[#b3b3b3] mt-2 sm:mt-1 transition-opacity duration-200 text-center">
@@ -277,6 +280,26 @@ export default function Home() {
               paddingRight: "0.75rem"
             }}
           >
+            {/* AI Disclaimer */}
+            <div className="w-full mb-6 flex items-center justify-center animate-fade-in">
+              <div
+                className="flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg border border-[#1ed760]/60"
+                style={{
+                  background: 'linear-gradient(90deg, #232323 80%, #1ed76022 100%)',
+                  color: '#ffe082',
+                  fontSize: '1.08rem',
+                  fontWeight: 500,
+                  boxShadow: '0 2px 12px 0 #1ed76022',
+                  letterSpacing: '0.01em',
+                  minHeight: 44
+                }}
+              >
+                <span style={{fontSize: '1.3em', lineHeight: 1}}>⚠️</span>
+                <span>
+                  AI-generated results may not be fully accurate. Please double-check before using.
+                </span>
+              </div>
+            </div>
             {completeAlbums.length > 0 ? (
               <>
                 <div className="w-full flex flex-col gap-5 animate-fade-in">
