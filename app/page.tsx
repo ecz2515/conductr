@@ -4,10 +4,8 @@ import { useRouter } from "next/navigation";
 import { useAlbumStore } from "./store/albumStore";
 
 const SEARCH_MESSAGES = [
-  "This can take up to a minute…",
   "Filtering out Spotify junk…",
   "Sifting through 300 Karajan albums…",
-  "Removing ‘Greatest Hits’ editions…",
   "Double-checking movements…",
   "Optimizing your playlist for max culture points…",
   "Counting how many times Bernstein recorded this…"
@@ -32,7 +30,7 @@ export default function Home() {
       setSearchMsgIdx(0);
       searchMsgTimer.current = setInterval(() => {
         setSearchMsgIdx(idx => (idx + 1) % SEARCH_MESSAGES.length);
-      }, 5000);
+      }, 2000);
     } else {
       setSearchMsgIdx(0);
       if (searchMsgTimer.current) clearInterval(searchMsgTimer.current);
@@ -161,7 +159,9 @@ export default function Home() {
         `}
         style={{
           minHeight: 0,
-          transition: 'justify-content 0.5s cubic-bezier(.73,0,.23,1)'
+          transition: 'justify-content 0.5s cubic-bezier(.73,0,.23,1)',
+          // Ensure vertical centering when shouldCenter
+          ...(shouldCenter ? { minHeight: '70vh', justifyContent: 'center' } : {})
         }}
       >
         {/* Title */}
@@ -395,9 +395,15 @@ export default function Home() {
           </div>
         )}
       </main>
-      <footer className="text-[#b3b3b3] text-xs mt-8 mb-4 text-center px-3">
+      <footer className="text-[#b3b3b3] text-xs mt-1 mb-4 text-center px-3">
         Built with ❤️ for conductors • Not affiliated with Spotify
       </footer>
+      {/* FAQ Section: visible before results, as an accordion */}
+      {shouldCenter && (
+        <div className="mt-2 -mb-2">
+          <FAQAccordion />
+        </div>
+      )}
       {/* Animation keyframes */}
       <style jsx global>{`
         @keyframes bounce-once {
@@ -450,5 +456,117 @@ function Spinner() {
         />
       </svg>
     </span>
+  );
+}
+
+// FAQAccordion component (accordion-style, advanced UI)
+function FAQAccordion() {
+  const [openIdx, setOpenIdx] = React.useState<number | null>(null);
+  const faqs = [
+    {
+      q: "What problem does Conductr actually solve?",
+      a: (
+        <>
+          If you’ve ever searched Spotify for “Mahler 1,” you’ve seen the mess:
+          <ul className="list-disc pl-6 text-[#b3b3b3] mt-2">
+            <li>You’ll get Mahler 2, 4, 7, random movements, “best of” albums, incomplete performances, and endless irrelevant results.</li>
+            <li>There’s no way to filter out incomplete recordings or just show complete symphonies.</li>
+          </ul>
+          <p className="text-[#b3b3b3] mt-2">
+            Conductr was built to fix this exact problem—so you get only full, correct recordings of the piece you want.
+          </p>
+        </>
+      )
+    },
+    {
+      q: "Why does Spotify return the wrong results for classical music?",
+      a: (
+        <>
+          <p>Spotify’s search is designed for pop songs, not multi-movement works.</p>
+          <p className="text-[#b3b3b3] mt-2">
+            Typing “Mahler 1” matches anything with “Mahler” and a number, so you get “Mahler 2,” “Mahler 4,” “Symphony No. 7,” and random excerpts.
+            There’s no built-in logic for movements, full symphonies, or distinguishing complete works from partial recordings.
+          </p>
+        </>
+      )
+    },
+    {
+      q: "How does Conductr fix this?",
+      a: (
+        <>
+          <p>Conductr uses a multi-step process:</p>
+          <ul className="list-disc pl-6 mt-2 text-[#b3b3b3]">
+            <li><b>AI-Powered Parsing:</b> When you search “Mahler 1,” Conductr uses natural language processing (NLP) and smart pattern matching to understand that you mean “Symphony No. 1 in D major,” ignoring unrelated results.</li>
+            <li><b>Metadata Analysis:</b> It uses a combination of rules-based and AI-driven metadata matching to check that all movements are present and in order, confirming a complete performance.</li>
+            <li><b>Filtering & Grouping:</b> Greatest hits albums, random excerpts, and incomplete performances are automatically removed. Results are organized by conductor, orchestra, or soloist for fast comparison.</li>
+            <li><b>Caching & Throttling:</b> To keep searches blazing fast and reliable, Conductr caches popular queries and uses intelligent throttling to stay within Spotify’s API limits, so you never get rate-limited or slowed down.</li>
+          </ul>
+        </>
+      )
+    },
+    {
+      q: "So if I search “Mahler 1,” will I only get full Symphony No. 1 recordings?",
+      a: (
+        <p>Exactly! Thanks to our AI-driven filtering, you’ll see a clean list of only complete recordings of Mahler’s Symphony No. 1—no “Symphony No. 2,” no “Mahler 7,” no compilations with just one movement.</p>
+      )
+    },
+    {
+      q: "Does this work for other composers and pieces too?",
+      a: (
+        <p>Yes! Conductr’s AI and metadata logic handle most classical works—whether it’s “Beethoven Violin Concerto,” “Rite of Spring,” or “Shostakovich 5”—and find all the relevant, complete recordings for you.</p>
+      )
+    },
+    {
+      q: "Can I create a playlist directly from Conductr?",
+      a: (
+        <p>Yes—you can build a Spotify playlist with your selected recordings right from Conductr, without having to dig or copy-paste links.</p>
+      )
+    },
+    {
+      q: "What’s under the hood?",
+      a: (
+        <p>Conductr is powered by smart AI, advanced metadata parsing, and a custom caching layer to keep everything fast, accurate, and always available—even during peak times. Throttling mechanisms ensure we never hit Spotify’s API rate limits, so your searches just work.</p>
+      )
+    }
+  ];
+  return (
+    <section
+      className="w-full max-w-2xl mx-auto mb-6 px-4 py-6 bg-[#181818] rounded-2xl shadow-xl border border-[#282828] animate-fade-in"
+      style={{ color: '#eaeaea', fontSize: '1rem', lineHeight: 1.7 }}
+    >
+      <h2 className="text-xl sm:text-2xl font-bold text-[#1ed760] mb-4 text-center">FAQ</h2>
+      <div className="divide-y divide-[#282828]">
+        {faqs.map((faq, idx) => (
+          <div key={idx}>
+            <button
+              className={`w-full text-left py-4 px-2 focus:outline-none flex items-center justify-between transition-colors duration-200 ${openIdx === idx ? 'text-[#1ed760]' : 'text-white hover:text-[#1ed760]'}`}
+              onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
+              aria-expanded={openIdx === idx}
+              aria-controls={`faq-panel-${idx}`}
+              style={{ fontWeight: 600, fontSize: '1.08em' }}
+            >
+              <span>{faq.q}</span>
+              <span className={`ml-3 transition-transform duration-300 ${openIdx === idx ? 'rotate-90' : ''}`}>▶</span>
+            </button>
+            <div
+              id={`faq-panel-${idx}`}
+              className={`overflow-hidden transition-all duration-400 ease-in-out ${openIdx === idx ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}
+              style={{
+                paddingLeft: openIdx === idx ? 12 : 0,
+                paddingRight: openIdx === idx ? 12 : 0,
+                marginBottom: openIdx === idx ? 18 : 0,
+                transition: 'all 0.4s cubic-bezier(.73,0,.23,1)',
+              }}
+            >
+              {openIdx === idx && (
+                <div className="pb-4 pt-1 text-[#eaeaea] text-base animate-fade-in">
+                  {faq.a}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

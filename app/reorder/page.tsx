@@ -54,18 +54,26 @@ export default function ReorderPage() {
     const ids = albums.map(album => album.id).join(",");
     // Encode the full album data as base64 to pass through URL
     const albumData = btoa(JSON.stringify(albums));
+    // Get canonical info from Zustand store
+    const searchContext = useAlbumStore.getState().getSearchContext();
+    let canonicalData = "";
+    if (searchContext && searchContext.canonical) {
+      canonicalData = btoa(JSON.stringify(searchContext.canonical));
+    }
     const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
     const redirectUri = "http://127.0.0.1:3000/playlist/create"; // or use your env var
     const scopes = [
       "playlist-modify-public",
       "playlist-modify-private"
     ].join(" ");
+    // Add canonicalData as a third part of the state param
+    const stateParts = [ids, albumData, canonicalData];
     const spotifyAuthorizeUrl =
       `https://accounts.spotify.com/authorize?response_type=code` +
       `&client_id=${encodeURIComponent(clientId ?? "")}` +
       `&scope=${encodeURIComponent(scopes)}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&state=${encodeURIComponent(ids + "|" + albumData)}`;
+      `&state=${encodeURIComponent(stateParts.join("|"))}`;
     window.location.href = spotifyAuthorizeUrl;
   }
   

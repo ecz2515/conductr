@@ -28,8 +28,8 @@ export default function PlaylistCreatePage() {
       return;
     }
 
-    // Parse the state parameter which contains both IDs and album data
-    const [idsStr, albumDataStr] = stateParam.split("|");
+    // Parse the state parameter which contains IDs, album data, and canonical info
+    const [idsStr, albumDataStr, canonicalDataStr] = stateParam.split("|");
     const ids = idsStr.split(",").filter(Boolean);
     
     // Decode album data from base64
@@ -51,18 +51,39 @@ export default function PlaylistCreatePage() {
       return;
     }
 
-    // Get search context and set up playlist form
-    const searchContext = useAlbumStore.getState().getSearchContext();
-    if (searchContext) {
-      const defaultName = searchContext.canonical.movement 
-        ? `${searchContext.canonical.composer}: ${searchContext.canonical.work} - ${searchContext.canonical.movement}`
-        : `${searchContext.canonical.composer}: ${searchContext.canonical.work}`;
-      
+    // Decode canonical info from base64 if present
+    let canonical = null;
+    if (canonicalDataStr) {
+      try {
+        const decodedCanonical = atob(canonicalDataStr);
+        canonical = JSON.parse(decodedCanonical);
+        console.log("Decoded canonical from URL:", canonical);
+      } catch (e) {
+        console.error("Failed to decode canonical data:", e);
+      }
+    }
+
+    // Set up playlist form using canonical info if available
+    if (canonical) {
+      const defaultName = canonical.movement 
+        ? `${canonical.composer}: ${canonical.work} - ${canonical.movement}`
+        : `${canonical.composer}: ${canonical.work}`;
       setPlaylistName(defaultName);
       setPlaylistDescription(`Created with Conductr`);
       setShowPlaylistForm(true);
     } else {
-      setError("Search context not found. Please go back and try again.");
+      // Fallback to Zustand store
+      const searchContext = useAlbumStore.getState().getSearchContext();
+      if (searchContext) {
+        const defaultName = searchContext.canonical.movement 
+          ? `${searchContext.canonical.composer}: ${searchContext.canonical.work} - ${searchContext.canonical.movement}`
+          : `${searchContext.canonical.composer}: ${searchContext.canonical.work}`;
+        setPlaylistName(defaultName);
+        setPlaylistDescription(`Created with Conductr`);
+        setShowPlaylistForm(true);
+      } else {
+        setError("Search context not found. Please go back and try again.");
+      }
     }
   }, []);
 
