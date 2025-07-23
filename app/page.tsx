@@ -161,7 +161,7 @@ export default function Home() {
           minHeight: 0,
           transition: 'justify-content 0.5s cubic-bezier(.73,0,.23,1)',
           // Ensure vertical centering when shouldCenter
-          ...(shouldCenter ? { minHeight: '90vh', justifyContent: 'center' } : {})
+          ...(shouldCenter ? { minHeight: '60vh', justifyContent: 'center' } : {})
         }}
       >
         {/* Title */}
@@ -169,7 +169,7 @@ export default function Home() {
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight drop-shadow-lg mb-2 text-center">
             {albums && !isSearching && albums.length > 0
               ? "Select the recordings you want to include in your playlist"
-              : "Classical Playlist Builder For Conductors"
+              : "Spotify Playlist Builder For Conductors"
             }
           </h1>
           {!albums && !awaitingConfirmation && !isLoading && (
