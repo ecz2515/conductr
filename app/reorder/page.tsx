@@ -9,17 +9,21 @@ export default function ReorderPage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [movingIndex, setMovingIndex] = useState<number | null>(null);
+  // Decode canonical from URL (Unicode-safe)
+  const canonicalBase64 = searchParams.get("canonical");
+  let canonical = null;
+  if (canonicalBase64) {
+    try {
+      canonical = JSON.parse(decodeURIComponent(escape(atob(canonicalBase64))));
+    } catch (e) {
+      canonical = null;
+    }
+  }
 
   // Load albums from Zustand by IDs in the URL
   useEffect(() => {
     const ids = searchParams.get("ids")?.split(",").filter(Boolean) ?? [];
     const storedAlbums = useAlbumStore.getState().getAlbumsByIds(ids);
-    const searchContext = useAlbumStore.getState().getSearchContext();
-    
-    console.log('Reorder page - IDs:', ids);
-    console.log('Reorder page - Stored albums:', storedAlbums);
-    console.log('Reorder page - Search context:', searchContext);
-    
     setAlbums(storedAlbums);
     setLoading(false);
   }, [searchParams]);
@@ -53,12 +57,29 @@ export default function ReorderPage() {
   function handleConfirm() {
     const ids = albums.map(album => album.id).join(",");
     // Encode the full album data as base64 to pass through URL
-    const albumData = btoa(JSON.stringify(albums));
-    // Get canonical info from Zustand store
-    const searchContext = useAlbumStore.getState().getSearchContext();
+    const albumData = btoa(unescape(encodeURIComponent(JSON.stringify(albums))));
+    // Use canonical from URL if present, otherwise fallback to Zustand
     let canonicalData = "";
-    if (searchContext && searchContext.canonical) {
-      canonicalData = btoa(JSON.stringify(searchContext.canonical));
+    let canonicalToEncode = null;
+    if (canonical && typeof canonical === "object") {
+      canonicalToEncode = canonical;
+    } else {
+      const searchContext = useAlbumStore.getState().getSearchContext();
+      if (searchContext && searchContext.canonical && typeof searchContext.canonical === "object") {
+        canonicalToEncode = searchContext.canonical;
+      }
+    }
+    console.log("Canonical to encode:", canonicalToEncode);
+    try {
+      if (canonicalToEncode) {
+        canonicalData = btoa(unescape(encodeURIComponent(JSON.stringify(canonicalToEncode))));
+      }
+    } catch (e) {
+      canonicalData = "";
+    }
+    if (!canonicalData) {
+      alert("Missing canonical information. Please go back and try again.");
+      return;
     }
     const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
     const redirectUri = "http://127.0.0.1:3000/playlist/create"; // or use your env var

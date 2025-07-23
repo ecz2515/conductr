@@ -36,7 +36,7 @@ export default function PlaylistCreatePage() {
     let storedAlbums = [];
     if (albumDataStr) {
       try {
-        const decodedData = atob(albumDataStr);
+        const decodedData = decodeURIComponent(escape(atob(albumDataStr)));
         storedAlbums = JSON.parse(decodedData);
         console.log("Decoded albums from URL:", storedAlbums);
       } catch (e) {
@@ -55,7 +55,7 @@ export default function PlaylistCreatePage() {
     let canonical = null;
     if (canonicalDataStr) {
       try {
-        const decodedCanonical = atob(canonicalDataStr);
+        const decodedCanonical = decodeURIComponent(escape(atob(canonicalDataStr)));
         canonical = JSON.parse(decodedCanonical);
         console.log("Decoded canonical from URL:", canonical);
       } catch (e) {
@@ -106,7 +106,7 @@ export default function PlaylistCreatePage() {
     let storedAlbums = [];
     if (albumDataStr) {
       try {
-        const decodedData = atob(albumDataStr);
+        const decodedData = decodeURIComponent(escape(atob(albumDataStr)));
         storedAlbums = JSON.parse(decodedData);
         console.log("Decoded albums from URL:", storedAlbums);
       } catch (e) {

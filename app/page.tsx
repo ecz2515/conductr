@@ -47,28 +47,21 @@ export default function Home() {
   }
 
   function handleAddToPlaylist() {
-    console.log('handleAddToPlaylist called');
-    console.log('selectedAlbumIds:', selectedAlbumIds);
-    console.log('completeAlbums:', completeAlbums);
-    
     // Only continue if at least one album selected
     if (selectedAlbumIds.length === 0) return;
     const selectedAlbums = completeAlbums.filter(a => selectedAlbumIds.includes(a.id));
-    console.log('selectedAlbums to save:', selectedAlbums);
-    
-    // Save albums and search context globally
-    console.log('Setting albums:', selectedAlbums);
-    console.log('Setting search context:', { originalQuery: query, canonical: canonical });
-    
+
+    // Save albums globally (for legacy/fallback)
     useAlbumStore.getState().setAlbums(selectedAlbums);
     useAlbumStore.getState().setSearchContext({
       originalQuery: query,
       canonical: canonical
     });
-    
-    console.log('Album store state after setting:', useAlbumStore.getState());
-    
-    router.push(`/reorder?ids=${selectedAlbumIds.join(",")}`);
+
+    // Encode canonical as base64 and pass in URL (Unicode-safe)
+    const canonicalBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(canonical))));
+    const url = `/reorder?ids=${selectedAlbumIds.join(",")}&canonical=${encodeURIComponent(canonicalBase64)}`;
+    router.push(url);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -341,111 +334,53 @@ export default function Home() {
                           `}
                         >
                           {isSelected && (
-                            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
+                            <svg
+                              className="h-4 w-4 text-white"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
                               <path
-                                d="M5 10.5L9 14L15 7"
-                                stroke="#191414"
-                                strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
                               />
                             </svg>
                           )}
                         </span>
-                        <img
-                          src={album.image}
-                          alt={album.conductor || "album cover"}
-                          className="w-20 h-20 sm:w-28 sm:h-28 object-cover rounded-xl flex-shrink-0"
-                          style={{ minWidth: "80px" }}
-                        />
-                        <div className="flex flex-col gap-2 ml-2 text-left w-2/3">
-                          <div className="text-white text-base font-semibold leading-snug break-words">
-                            {album.conductor && <div>{album.conductor}</div>}
-                            {album.orchestra && <div>{album.orchestra}</div>}
-                            {album.release_date && <div>{album.release_date.substring(0, 4)}</div>}
-                          </div>
-                          {/* Open in Spotify link */}
-                          <a
-                            href={album.uri && album.uri.startsWith("spotify:") ?
-                              `https://open.spotify.com/album/${album.id}` : album.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="inline-block mt-2 w-32 px-2 py-1 rounded-full bg-[#1ed760] hover:bg-[#1db954] text-black text-xs font-semibold transition text-center"
-                          >
-                            Open in Spotify
-                          </a>
+                        {/* Album details */}
+                        <div className="flex flex-col">
+                          <h3 className="text-lg font-bold text-white mb-1">{album.title}</h3>
+                          <p className="text-sm text-[#b3b3b3]">{album.artist}</p>
                         </div>
+                        {/* Play button */}
+                        <button
+                          className="ml-auto bg-[#1ed760] hover:bg-[#1db954] text-black font-semibold px-4 py-2 rounded-full transition shadow-md text-sm flex items-center justify-center min-w-[80px]"
+                          onClick={() => handleAddToPlaylist()}
+                          disabled={selectedAlbumIds.length === 0}
+                        >
+                          {selectedAlbumIds.length === 0 ? (
+                            <Spinner />
+                          ) : (
+                            "Add"
+                          )}
+                        </button>
                       </div>
                     );
                   })}
                 </div>
-                {/* Add to Playlist Button */}
-                <div className="flex justify-center items-center mt-12 w-full">
-                  <button
-                    onClick={handleAddToPlaylist}
-                    disabled={selectedAlbumIds.length === 0}
-                    className={`
-                      w-full sm:w-auto px-10 py-4 rounded-full font-bold text-lg
-                      shadow-xl transition-all duration-200
-                      bg-[#1ed760]
-                      ${
-                        selectedAlbumIds.length
-                          ? "hover:bg-[#1db954] hover:scale-105 shadow-green-400/40 animate-bounce-once"
-                          : "opacity-60 cursor-not-allowed"
-                      }
-                      text-black
-                      outline-none
-                      relative
-                    `}
-                    style={{
-                      boxShadow: selectedAlbumIds.length
-                        ? "0 0 16px 2px #1ed76088"
-                        : "none"
-                    }}
-                  >
-                    {selectedAlbumIds.length === 0
-                      ? "Select recordings to add"
-                      : `Add ${selectedAlbumIds.length} to Playlist`}
-                  </button>
-                </div>
               </>
             ) : (
-              <div className="mt-10 text-white text-xl animate-fade-in">
-                No complete recordings found. Try another search!
+              <div className="text-white text-lg text-center mt-10">
+                No recordings found for your query. Try a different piece or movement.
               </div>
             )}
           </div>
         )}
       </main>
-      <footer className="text-[#b3b3b3] text-xs mt-1 mb-4 text-center px-3">
-        Built with ❤️ for conductors • Not affiliated with Spotify
-      </footer>
-      {/* FAQ Section: visible before results, as an accordion */}
-      {shouldCenter && (
-        <div className="mt-2 -mb-2">
-          <FAQAccordion />
-        </div>
-      )}
-      {/* Animation keyframes */}
-      <style jsx global>{`
-        @keyframes bounce-once {
-          0%, 100% { transform: translateY(0);}
-          20% { transform: translateY(-8px);}
-          40% { transform: translateY(0);}
-        }
-        .animate-bounce-once { animation: bounce-once 0.7s; }
-        @keyframes fade-in {
-          from { opacity: 0;}
-          to { opacity: 1;}
-        }
-        .animate-fade-in { animation: fade-in 0.45s; }
-        @keyframes expand {
-          0% { opacity: 0; transform: scale(0.97) translateY(20px);}
-          100% { opacity: 1; transform: scale(1) translateY(0);}
-        }
-        .animate-expand { animation: expand 0.7s cubic-bezier(.73,0,.23,1); }
-      `}</style>
+      {/* FAQ Section */}
+      <FAQAccordion />
     </div>
   );
 }
