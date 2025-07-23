@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAlbumStore } from "../store/albumStore";
 import type { Album } from "../store/albumStore";
+import { encodeBase64 } from "../utils/base64";
 
 export default function ReorderPage() {
   const searchParams = useSearchParams();
@@ -53,12 +54,12 @@ export default function ReorderPage() {
   function handleConfirm() {
     const ids = albums.map(album => album.id).join(",");
     // Encode the full album data as base64 to pass through URL
-    const albumData = btoa(JSON.stringify(albums));
+    const albumData = encodeBase64(JSON.stringify(albums));
     // Get canonical info from Zustand store
     const searchContext = useAlbumStore.getState().getSearchContext();
     let canonicalData = "";
     if (searchContext && searchContext.canonical) {
-      canonicalData = btoa(JSON.stringify(searchContext.canonical));
+      canonicalData = encodeBase64(JSON.stringify(searchContext.canonical));
     }
     const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
     const redirectUri = "http://127.0.0.1:3000/playlist/create"; // or use your env var

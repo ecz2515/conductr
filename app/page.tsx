@@ -161,7 +161,7 @@ export default function Home() {
           minHeight: 0,
           transition: 'justify-content 0.5s cubic-bezier(.73,0,.23,1)',
           // Ensure vertical centering when shouldCenter
-          ...(shouldCenter ? { minHeight: '70vh', justifyContent: 'center' } : {})
+          ...(shouldCenter ? { minHeight: '90vh', justifyContent: 'center' } : {})
         }}
       >
         {/* Title */}

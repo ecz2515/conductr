@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAlbumStore } from "../../store/albumStore"; // import your album store
+import { decodeBase64 } from "../../utils/base64";
 
 
 export default function PlaylistCreatePage() {
@@ -14,6 +15,7 @@ export default function PlaylistCreatePage() {
   const [playlistName, setPlaylistName] = useState("");
   const [playlistDescription, setPlaylistDescription] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [canonical, setCanonical] = useState<any>(null);
 
     useEffect(() => {
     console.log("useEffect triggered");
@@ -36,7 +38,7 @@ export default function PlaylistCreatePage() {
     let storedAlbums = [];
     if (albumDataStr) {
       try {
-        const decodedData = atob(albumDataStr);
+        const decodedData = decodeBase64(albumDataStr);
         storedAlbums = JSON.parse(decodedData);
         console.log("Decoded albums from URL:", storedAlbums);
       } catch (e) {
@@ -52,42 +54,32 @@ export default function PlaylistCreatePage() {
     }
 
     // Decode canonical info from base64 if present
-    let canonical = null;
+    let canonicalObj = null;
     if (canonicalDataStr) {
       try {
-        const decodedCanonical = atob(canonicalDataStr);
-        canonical = JSON.parse(decodedCanonical);
-        console.log("Decoded canonical from URL:", canonical);
+        const decodedCanonical = decodeBase64(canonicalDataStr);
+        canonicalObj = JSON.parse(decodedCanonical);
+        setCanonical(canonicalObj);
+        console.log("Decoded canonical from URL:", canonicalObj);
       } catch (e) {
         console.error("Failed to decode canonical data:", e);
       }
     }
 
     // Set up playlist form using canonical info if available
-    if (canonical) {
-      const defaultName = canonical.movement 
-        ? `${canonical.composer}: ${canonical.work} - ${canonical.movement}`
-        : `${canonical.composer}: ${canonical.work}`;
+    if (canonicalObj) {
+      const defaultName = canonicalObj.movement 
+        ? `${canonicalObj.composer}: ${canonicalObj.work} - ${canonicalObj.movement}`
+        : `${canonicalObj.composer}: ${canonicalObj.work}`;
       setPlaylistName(defaultName);
       setPlaylistDescription(`Created with Conductr`);
       setShowPlaylistForm(true);
     } else {
-      // Fallback to Zustand store
-      const searchContext = useAlbumStore.getState().getSearchContext();
-      if (searchContext) {
-        const defaultName = searchContext.canonical.movement 
-          ? `${searchContext.canonical.composer}: ${searchContext.canonical.work} - ${searchContext.canonical.movement}`
-          : `${searchContext.canonical.composer}: ${searchContext.canonical.work}`;
-        setPlaylistName(defaultName);
-        setPlaylistDescription(`Created with Conductr`);
-        setShowPlaylistForm(true);
-      } else {
-        setError("Search context not found. Please go back and try again.");
-      }
+      setError("Canonical info not found. Please go back and try again.");
     }
   }, []);
 
-  async function createPlaylist(name: string, description: string) {
+  async function createPlaylist(name: string, description: string, canonical: any) {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
     const stateParam = urlParams.get("state");
@@ -106,7 +98,7 @@ export default function PlaylistCreatePage() {
     let storedAlbums = [];
     if (albumDataStr) {
       try {
-        const decodedData = atob(albumDataStr);
+        const decodedData = decodeBase64(albumDataStr);
         storedAlbums = JSON.parse(decodedData);
         console.log("Decoded albums from URL:", storedAlbums);
       } catch (e) {
@@ -143,14 +135,10 @@ export default function PlaylistCreatePage() {
     // 2. Clean up URL
     window.history.replaceState({}, document.title, "/playlist/create");
     
-    // 3. Get search context
-    const searchContext = useAlbumStore.getState().getSearchContext();
-    console.log("Retrieved search context:", searchContext);
-    
-    if (!searchContext) {
-      console.error("Search context is null/undefined");
-      console.log("Current album store state:", useAlbumStore.getState());
-      setError("Search context not found. Please go back and try again.");
+    // 3. Use canonical from argument (from URL)
+    const canonicalInfo = canonical;
+    if (!canonicalInfo) {
+      setError("Canonical info not found. Please go back and try again.");
       setLoading(false);
       return;
     }
@@ -166,9 +154,9 @@ export default function PlaylistCreatePage() {
     setCurrentStep("Creating playlist...");
     
     // 5. Create playlist with custom name
-    const finalPlaylistName = name || (searchContext.canonical.movement 
-      ? `${searchContext.canonical.composer}: ${searchContext.canonical.work} - ${searchContext.canonical.movement}`
-      : `${searchContext.canonical.composer}: ${searchContext.canonical.work}`);
+    const finalPlaylistName = name || (canonicalInfo.movement 
+      ? `${canonicalInfo.composer}: ${canonicalInfo.work} - ${canonicalInfo.movement}`
+      : `${canonicalInfo.composer}: ${canonicalInfo.work}`);
       
     const finalDescription = description || `Created with Conductr`;
           
@@ -206,8 +194,8 @@ export default function PlaylistCreatePage() {
           body: JSON.stringify({
             albumId: album.id,
             accessToken: tokenData.access_token,
-            workTitle: searchContext.canonical.work,
-            movementTitles: searchContext.canonical.movement ? [searchContext.canonical.movement] : []
+            workTitle: canonicalInfo.work,
+            movementTitles: canonicalInfo.movement ? [canonicalInfo.movement] : []
           }),
         });
         
@@ -376,52 +364,61 @@ export default function PlaylistCreatePage() {
   if (showPlaylistForm) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#191414] to-[#222326] py-10">
-        <div className="w-full max-w-md bg-[#181818] rounded-2xl shadow-xl px-6 py-8 border border-[#282828]">
-          <h2 className="text-white text-xl font-bold mb-6 text-center">Customize Your Playlist</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-[#b3b3b3] text-sm font-medium mb-2">
-                Playlist Name
-              </label>
+        <div className="w-full max-w-md bg-[#181818] rounded-2xl shadow-2xl px-6 py-10 border border-[#282828] animate-expand animate-fade-in flex flex-col items-center">
+          <h2 className="text-2xl sm:text-2xl font-bold text-white mb-2 text-center drop-shadow-lg">Customize Your Playlist</h2>
+          <p className="text-[#b3b3b3] text-base sm:text-md mb-8 text-center">Feel free to edit the name and description</p>
+          <div className="w-full max-w-xs mx-auto space-y-7 flex flex-col items-center">
+            <div className="w-full">
+              <label className="block text-[#b3b3b3] text-sm font-medium mb-2">Playlist Name</label>
               <input
                 type="text"
                 value={playlistName}
                 onChange={(e) => setPlaylistName(e.target.value)}
-                className="w-full bg-[#232323] text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-[#1ed760] border border-[#333]"
+                className="w-full bg-[#232323] text-white px-5 py-3 mb-4 rounded-lg outline-none focus:ring-2 focus:ring-[#1ed760] border border-[#333] shadow-sm text-base transition"
                 placeholder="Enter playlist name"
               />
             </div>
-            
-            <div>
-              <label className="block text-[#b3b3b3] text-sm font-medium mb-2">
-                Description (optional)
-              </label>
+            <div className="w-full">
+              <label className="block text-[#b3b3b3] text-sm font-medium mb-2">Description (optional)</label>
               <textarea
                 value={playlistDescription}
                 onChange={(e) => setPlaylistDescription(e.target.value)}
                 rows={3}
-                className="w-full bg-[#232323] text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-[#1ed760] border border-[#333] resize-none"
+                className="w-full bg-[#232323] text-white px-5 py-3 rounded-lg outline-none focus:ring-2 focus:ring-[#1ed760] border border-[#333] shadow-sm text-base resize-none transition"
                 placeholder="Add a description..."
               />
             </div>
           </div>
-          
-          <div className="flex gap-3 mt-8">
+          <div className="flex gap-3 mt-12 w-full justify-center">
             <button
               onClick={() => {
                 setShowPlaylistForm(false);
                 setLoading(true);
                 setCurrentStep("Starting playlist creation...");
-                // Continue with playlist creation
-                createPlaylist(playlistName, playlistDescription);
+                createPlaylist(playlistName, playlistDescription, canonical);
               }}
-              className="flex-1 bg-[#1ed760] hover:bg-[#1db954] text-black font-semibold px-4 py-3 rounded-lg transition"
+              className="max-w-xs w-full bg-[#1ed760] hover:bg-[#1db954] text-black font-bold px-6 py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 text-lg"
             >
               Create Playlist
             </button>
           </div>
+          <div className="mt-12 text-[#666] text-xs text-center select-none w-full max-w-xs mx-auto">
+            <p>Created with ❤️ using Conductr</p>
+            <p className="mt-1">AI-powered classical music playlist builder</p>
+          </div>
         </div>
+        <style jsx global>{`
+          @keyframes expand {
+            0% { opacity: 0; transform: scale(0.97) translateY(20px);}
+            100% { opacity: 1; transform: scale(1) translateY(0);}
+          }
+          .animate-expand { animation: expand 0.7s cubic-bezier(.73,0,.23,1); }
+          .animate-fade-in { animation: fadeIn 0.7s cubic-bezier(.73,0,.23,1); }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+        `}</style>
       </div>
     );
   }
