@@ -378,8 +378,13 @@ export function Alert({ children, variant = "info", className = "" }: AlertProps
 // Footer Component
 export function Footer({ className = "" }: { className?: string }) {
   return (
-    <footer className={`text-[#b3b3b3] text-xs mt-1 mb-4 text-center px-3 ${className}`}>
-      Built with ❤️ for conductors • Not affiliated with Spotify
-    </footer>
+    <footer className="text-[#b3b3b3] text-sm py-6 text-center border-t border-[#282828]">
+        Built with ❤️ for conductors • Not affiliated with Spotify
+        <div className="mt-4">
+          <a href="https://buy.stripe.com/eVqfZgdHD078bUhaso5kk06" target="_blank" rel="noopener noreferrer" className="text-[#1ed760] hover:text-[#1db954]">
+            Love it? Buy me a coffee ☕
+          </a>
+        </div>
+      </footer>
   )
 }
