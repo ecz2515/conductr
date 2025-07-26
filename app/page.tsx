@@ -277,7 +277,7 @@ export default function Home() {
           <div className="w-full max-w-4xl">
             {/* AI Disclaimer */}
             <div className="mb-8 flex justify-center animate-fade-in">
-              <div className="flex items-center gap-3 px-6 py-4 rounded-xl shadow-lg border border-[#1ed760]/60 bg-gradient-to-r from-[#232323] to-[#1ed760]/10" style={{ width: "60%" }}>
+              <div className="flex items-center gap-3 px-6 py-4 rounded-xl shadow-lg border border-[#1ed760]/60 bg-gradient-to-r from-[#232323] to-[#1ed760]/10" style={{ width: "95%", maxWidth: "500px" }}>
                 <span className="text-2xl">⚠️</span>
                 <span className="text-[#ffe082] font-medium text-lg">
                   AI-generated results may not be fully accurate. Please double-check before using.
@@ -313,7 +313,8 @@ export default function Home() {
                         style={{
                           minHeight: "112px", // more tap area
                           touchAction: "manipulation",
-                          width: "60%" // 80% of screen size
+                          width: "95%", // Full width on mobile
+                          maxWidth: "500px" // Max width on larger screens
                         }}
                       >
                         {/* Checkbox visual */}
@@ -383,6 +384,8 @@ export default function Home() {
                   `}
                     style={{
                       boxShadow: selectedAlbumIds.length ? "0 0 30px 5px #1ed76040" : "none",
+                      width: "95%",
+                      maxWidth: "500px"
                     }}
                   >
                     {selectedAlbumIds.length === 0

@@ -33,10 +33,13 @@ The user wants to extract tracks for: "${workTitle}"
 ${movementTitles.length ? `Specifically looking for these movements:\n${movementTitles.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}\n` : ""}
 
 Instructions:
-- If the user requests a specific movement or movements, ONLY select tracks that correspond to those movements. Do NOT include other movements or tracks.
-- If the user requests the entire work (e.g., a symphony or concerto), select ALL movements of that work, in order.
+- If the user requests a specific movement or movements, select ALL tracks that correspond to those movements, even if a single movement is split across multiple tracks.
+- If the user requests the entire work (e.g., a symphony or concerto), select ALL tracks for ALL movements of that work, in order.
+- IMPORTANT: Each movement may be split into multiple tracks on this album. You must extract ALL tracks that belong to the requested work/movements, not just the first few.
+- For large works like Mahler symphonies, some albums split movements into many tracks (20+ tracks total). You must include ALL of these tracks.
 - If the album contains multiple works, select only the tracks for the requested work or movement(s).
 - Match movement names and numbers carefully (e.g., "II. Andante", "2. Andante", "Mvt. 2", "II", "2", etc.).
+- Look for partial matches and variations in track naming that might indicate the same movement.
 - Do NOT include extra tracks, introductions, or unrelated works.
 - Respond ONLY with a comma-separated list of track numbers, no extra text.
 
@@ -49,7 +52,7 @@ Which track numbers from the above list correspond to the requested work/movemen
     const response = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 40,
+      max_tokens: 200,
     });
     
     const content = response.choices[0].message.content ?? "";

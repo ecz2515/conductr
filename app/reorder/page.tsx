@@ -116,15 +116,15 @@ export default function ReorderPage() {
             <div
               key={album.id}
               className={`
-                flex items-center bg-[#232323] rounded-2xl shadow-lg p-4 gap-6
+                flex items-center bg-[#232323] rounded-2xl shadow-lg p-3 sm:p-4 gap-3 sm:gap-6
                 border-2 border-[#282828] hover:border-[#1ed760]/30
                 transition-all duration-300 ease-in-out
-                ${idx < albums.length - 1 ? 'mb-5' : ''}
+                ${idx < albums.length - 1 ? 'mb-4 sm:mb-5' : ''}
                 group
                 ${movingIndex === idx ? 'z-10' : ''}
               `}
               style={{
-                minHeight: "112px",
+                minHeight: "96px",
                 transform: movingIndex === idx ? "scale(1.02)" : "scale(1)",
                 opacity: movingIndex === idx ? 0.8 : 1,
                 boxShadow: movingIndex === idx
@@ -173,13 +173,13 @@ export default function ReorderPage() {
               <img
                 src={album.image}
                 alt={album.conductor || "album cover"}
-                className="w-20 h-20 sm:w-28 sm:h-28 object-cover rounded-xl flex-shrink-0"
-                style={{ minWidth: "80px" }}
+                className="w-16 h-16 sm:w-20 sm:h-20 md:w-28 md:h-28 object-cover rounded-xl flex-shrink-0"
+                style={{ minWidth: "64px" }}
               />
-              <div className="flex flex-col gap-2 ml-2 text-left w-2/3">
-                <div className="text-white text-base font-semibold leading-snug break-words">
-                  {album.conductor && <div>{album.conductor}</div>}
-                  {album.orchestra && <div>{album.orchestra}</div>}
+              <div className="flex flex-col gap-1 sm:gap-2 ml-2 sm:ml-4 text-left flex-1 min-w-0">
+                <div className="text-white text-sm sm:text-base font-semibold leading-tight sm:leading-snug break-words">
+                  {album.conductor && <div className="truncate">{album.conductor}</div>}
+                  {album.orchestra && <div className="truncate">{album.orchestra}</div>}
                   {album.release_date && <div>{album.release_date.substring(0, 4)}</div>}
                 </div>
                 <a
