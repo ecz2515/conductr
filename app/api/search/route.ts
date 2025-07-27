@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import Redis from 'ioredis';
-const redis = new Redis(); // defaults to localhost:6379
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 import pLimit from 'p-limit';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;

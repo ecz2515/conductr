@@ -1,11 +1,11 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAlbumStore } from "../store/albumStore";
 import type { Album } from "../store/albumStore";
 import { encodeBase64 } from "../utils/base64";
 
-export default function ReorderPage() {
+function ReorderContent() {
   const searchParams = useSearchParams();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
@@ -211,6 +211,22 @@ export default function ReorderPage() {
         .animate-expand { animation: expand 0.7s cubic-bezier(.73,0,.23,1); }
       `}</style>
     </div>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#191414] to-[#222326]">
+      <Spinner />
+    </div>
+  );
+}
+
+export default function ReorderPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ReorderContent />
+    </Suspense>
   );
 }
 
