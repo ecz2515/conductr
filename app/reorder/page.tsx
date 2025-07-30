@@ -62,7 +62,11 @@ function ReorderContent() {
       canonicalData = encodeBase64(JSON.stringify(searchContext.canonical));
     }
     const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
-    const redirectUri = "http://127.0.0.1:3000/playlist/create"; // or use your env var
+    const redirectUri =
+      process.env.NODE_ENV === "production"
+        ? `${process.env.NEXT_PUBLIC_BASE_URL}/playlist/create`
+        : "http://127.0.0.1:3000/playlist/create";
+
     const scopes = [
       "playlist-modify-public",
       "playlist-modify-private"
