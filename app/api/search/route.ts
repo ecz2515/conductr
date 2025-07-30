@@ -1,7 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import Redis from 'ioredis';
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+
+// Initialize Redis with error handling
+let redis: Redis | null = null;
+try {
+  redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: false,
+    lazyConnect: true,
+    connectTimeout: 5000
+  });
+  redis.on('error', (err) => {
+    console.log('[REDIS] Connection error, disabling Redis:', err.message);
+    redis = null;
+  });
+} catch (error) {
+  console.log('[REDIS] Failed to initialize Redis, continuing without cache');
+  redis = null;
+}
+
 import pLimit from 'p-limit';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -12,26 +30,52 @@ const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 let tokenCache = { token: null as null | string, expires: 0 };
 
 async function getAccessToken() {
+  console.log('[DEBUG] Getting Spotify access token');
+  console.log('[DEBUG] Spotify credentials:', {
+    hasClientId: !!SPOTIFY_CLIENT_ID,
+    hasClientSecret: !!SPOTIFY_CLIENT_SECRET,
+    clientIdLength: SPOTIFY_CLIENT_ID?.length || 0,
+    clientSecretLength: SPOTIFY_CLIENT_SECRET?.length || 0
+  });
+  
   if (tokenCache.token && Date.now() < tokenCache.expires) {
+    console.log('[DEBUG] Using cached token');
     return tokenCache.token;
   }
-  const res = await axios.post(
-    "https://accounts.spotify.com/api/token",
-    new URLSearchParams({ grant_type: "client_credentials" }),
-    {
-      headers: {
-        Authorization:
-          "Basic " +
-          Buffer.from(
-            SPOTIFY_CLIENT_ID + ":" + SPOTIFY_CLIENT_SECRET
-          ).toString("base64"),
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    }
-  );
-  tokenCache.token = res.data.access_token;
-  tokenCache.expires = Date.now() + res.data.expires_in * 1000 - 60000;
-  return tokenCache.token;
+  
+  try {
+    console.log('[DEBUG] Fetching new token from Spotify');
+    console.log('[DEBUG] Making POST request to Spotify token endpoint');
+    const res = await axios.post(
+      "https://accounts.spotify.com/api/token",
+      new URLSearchParams({ grant_type: "client_credentials" }),
+      {
+        headers: {
+          Authorization:
+            "Basic " +
+            Buffer.from(
+              SPOTIFY_CLIENT_ID + ":" + SPOTIFY_CLIENT_SECRET
+            ).toString("base64"),
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
+    console.log('[DEBUG] Spotify token response received');
+    console.log('[DEBUG] Token response status:', res.status);
+    console.log('[DEBUG] Token response has access_token:', !!res.data.access_token);
+    tokenCache.token = res.data.access_token;
+    tokenCache.expires = Date.now() + res.data.expires_in * 1000 - 60000;
+    console.log('[DEBUG] Token cached, expires in:', res.data.expires_in, 'seconds');
+    return tokenCache.token;
+  } catch (error: any) {
+    console.error('[DEBUG] Spotify token error:', {
+      message: error.message,
+      response: error?.response?.data,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText
+    });
+    throw error;
+  }
 }
 
 // ---- FETCH ALBUMS ----
@@ -138,9 +182,22 @@ Output JSON like:
 // ---- MAIN API ROUTE (POST: canonical object) ----
 export async function POST(req: NextRequest) {
   try {
+    console.log('[DEBUG] ===== SEARCH API START =====');
+    console.log('[DEBUG] Environment variables check:', {
+      hasOpenAI: !!process.env.OPENAI_API_KEY,
+      hasSpotifyClientId: !!process.env.SPOTIFY_CLIENT_ID,
+      hasSpotifySecret: !!process.env.SPOTIFY_CLIENT_SECRET,
+      hasRedis: !!process.env.REDIS_URL,
+      redisUrl: process.env.REDIS_URL ? 'SET' : 'NOT SET'
+    });
+    
     const startTime = Date.now();
+    console.log('[DEBUG] Parsing request body...');
     const canonical = await req.json();
+    console.log('[DEBUG] Received canonical data:', canonical);
+    
     if (!canonical || !canonical.composer || !canonical.work) {
+      console.log('[DEBUG] Missing canonical data:', { canonical });
       return NextResponse.json(
         { error: "Missing canonical composer or work" },
         { status: 400 }
@@ -155,24 +212,31 @@ export async function POST(req: NextRequest) {
       canonical.catalog || "",
     ].filter(Boolean);
     const query = parts.join(" ").replace(/\s+/g, " ");
+    console.log('[DEBUG] Built search query:', query);
 
     // Canonicalized piece string for cache key
     const canonicalKey = parts.join(":").toLowerCase().replace(/\s+/g, "_");
+    console.log('[DEBUG] Canonical key:', canonicalKey);
 
     // 1. Get Spotify token
+    console.log('[DEBUG] Getting Spotify access token...');
     const token = await getAccessToken();
     if (!token) {
+      console.log('[DEBUG] Spotify token fetch failed');
       return NextResponse.json(
         { error: "Spotify token fetch failed" },
         { status: 500 }
       );
     }
+    console.log('[DEBUG] Spotify token obtained successfully');
 
     // 2. Search albums for built query
+    console.log('[DEBUG] Fetching Spotify albums...');
     const albums = await fetchSpotifyAlbums(token, query, 3); // up to 60 albums
-    console.log(`[SEARCH] Fetched ${albums.length} albums for query: ${query}`);
+    console.log(`[DEBUG] Fetched ${albums.length} albums for query: ${query}`);
 
     // 3. AI analysis for each album, with Redis cache and throttled parallelism
+    console.log('[DEBUG] Starting AI analysis...');
     const limit = pLimit(5); // concurrency limit
     const albumResults: any[] = [];
     const uncachedTasks: any[] = [];
@@ -181,24 +245,58 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < albums.length; i++) {
       const album = albums[i];
+      console.log(`[DEBUG] Processing album ${i + 1}/${albums.length}: ${album.name}`);
       const cacheKey = `search:ai:analysis:${album.id}:${canonicalKey}`;
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        console.log(`[CACHE] Hit for album ${album.id} (${album.name})`);
-        const ai = JSON.parse(cached);
-        cachedResults[i] = {
-          ...album,
-          isComplete: ai.isComplete,
-          conductor: ai.conductor,
-          orchestra: ai.orchestra,
-        };
+      let ai: any;
+      if (redis) {
+        try {
+          console.log(`[DEBUG] Checking Redis cache for album ${album.id}`);
+          const cached = await redis.get(cacheKey);
+          if (cached) {
+            console.log(`[CACHE] Hit for album ${album.id} (${album.name})`);
+            ai = JSON.parse(cached);
+          } else {
+            console.log(`[CACHE] Miss for album ${album.id} (${album.name}) - calling OpenAI`);
+            uncachedIndexes.push(i);
+            uncachedTasks.push(limit(async () => {
+              console.log(`[OPENAI] Analyzing album ${album.id} (${album.name})`);
+              ai = await analyzeAlbumMeta({ album, userQuery: query });
+              if (redis) {
+                try {
+                  await redis.set(cacheKey, JSON.stringify(ai), 'EX', 60 * 60 * 24 * 30); // 30 days
+                  console.log(`[DEBUG] Cached AI result for album ${album.id}`);
+                } catch (cacheError) {
+                  console.log(`[DEBUG] Failed to cache AI result for album ${album.id}:`, cacheError);
+                }
+              }
+              return {
+                ...album,
+                isComplete: ai.isComplete,
+                conductor: ai.conductor,
+                orchestra: ai.orchestra,
+              };
+            }));
+          }
+        } catch (redisError) {
+          console.log(`[DEBUG] Redis error for album ${album.id}:`, redisError);
+          uncachedIndexes.push(i);
+          uncachedTasks.push(limit(async () => {
+            console.log(`[OPENAI] Analyzing album ${album.id} (${album.name}) - Redis failed`);
+            ai = await analyzeAlbumMeta({ album, userQuery: query });
+            return {
+              ...album,
+              isComplete: ai.isComplete,
+              conductor: ai.conductor,
+              orchestra: ai.orchestra,
+            };
+          }));
+        }
       } else {
-        console.log(`[CACHE] Miss for album ${album.id} (${album.name}) - calling OpenAI`);
+        console.log(`[CACHE] Redis not available, skipping cache for album ${album.id} (${album.name})`);
         uncachedIndexes.push(i);
         uncachedTasks.push(limit(async () => {
           console.log(`[OPENAI] Analyzing album ${album.id} (${album.name})`);
-          const ai = await analyzeAlbumMeta({ album, userQuery: query });
-          await redis.set(cacheKey, JSON.stringify(ai), 'EX', 60 * 60 * 24 * 30); // 30 days
+          ai = await analyzeAlbumMeta({ album, userQuery: query });
           return {
             ...album,
             isComplete: ai.isComplete,
@@ -207,9 +305,20 @@ export async function POST(req: NextRequest) {
           };
         }));
       }
+      if (ai) {
+        cachedResults[i] = {
+          ...album,
+          isComplete: ai.isComplete,
+          conductor: ai.conductor,
+          orchestra: ai.orchestra,
+        };
+      }
     }
 
+    console.log(`[DEBUG] Waiting for ${uncachedTasks.length} AI analysis tasks...`);
     const uncachedResults = await Promise.all(uncachedTasks);
+    console.log('[DEBUG] All AI analysis tasks completed');
+    
     // Merge cached and uncached results in original order
     let uncachedIdx = 0;
     for (let i = 0; i < albums.length; i++) {
@@ -221,20 +330,29 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Sort complete albums first
+    console.log('[DEBUG] Sorting results...');
     albumResults.sort((a, b) => (b.isComplete ? 1 : 0) - (a.isComplete ? 1 : 0));
 
     const elapsed = Date.now() - startTime;
     const MIN_LOADING_TIME = 4000; // 4 seconds
     if (elapsed < MIN_LOADING_TIME) {
       const wait = MIN_LOADING_TIME - elapsed;
-      console.log(`[SEARCH] Artificially waiting ${wait}ms for minimum loading time.`);
+      console.log(`[DEBUG] Artificially waiting ${wait}ms for minimum loading time.`);
       await new Promise(res => setTimeout(res, wait));
     }
-    console.log(`[SEARCH] Total search time (including any artificial wait): ${Date.now() - startTime}ms`);
+    console.log(`[DEBUG] Total search time (including any artificial wait): ${Date.now() - startTime}ms`);
+    console.log(`[DEBUG] Returning ${albumResults.length} album results`);
+    console.log('[DEBUG] ===== SEARCH API SUCCESS =====');
 
     return NextResponse.json(albumResults);
   } catch (error: any) {
-    console.error(error?.response?.data || error.message);
+    console.error('[DEBUG] ===== SEARCH API ERROR =====');
+    console.error('[DEBUG] Main search API error:', {
+      message: error.message,
+      response: error?.response?.data,
+      status: error?.response?.status,
+      stack: error.stack
+    });
     return NextResponse.json({ error: "Spotify/OpenAI API error" }, { status: 500 });
   }
 }
