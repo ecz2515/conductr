@@ -84,7 +84,7 @@ export default function PlaylistCreatePage() {
         ? `${canonicalObj.composer}: ${canonicalObj.work} - ${canonicalObj.movement}`
         : `${canonicalObj.composer}: ${canonicalObj.work}`
       setPlaylistName(defaultName)
-      setPlaylistDescription(`Created with Conductr`)
+      setPlaylistDescription(`Created with conductr.dev`)
       setShowPlaylistForm(true)
     } else {
       setError("Canonical info not found. Please go back and try again.")
@@ -169,7 +169,7 @@ export default function PlaylistCreatePage() {
           ? `${canonicalInfo.composer}: ${canonicalInfo.work} - ${canonicalInfo.movement}`
           : `${canonicalInfo.composer}: ${canonicalInfo.work}`)
 
-      const finalDescription = description || `Created with Conductr`
+      const finalDescription = description || `Created with conductr.dev`
 
       const playlistResp = await fetch(`https://api.spotify.com/v1/users/${user.id}/playlists`, {
         method: "POST",

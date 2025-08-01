@@ -140,7 +140,7 @@ export function Button({
 
   const variantClasses = {
     primary: `bg-[#1ed760] hover:bg-[#1db954] text-black shadow-md ${loading || disabled ? "opacity-60 cursor-not-allowed" : "hover:scale-105"}`,
-    secondary: `bg-[#232323] hover:bg-[#333] text-white border border-[#282828] ${disabled ? "opacity-60 cursor-not-allowed" : ""}`,
+    secondary: `bg-[#232323] hover:bg-[#333] text-white border border-[#404040] hover:border-[#505050] ${disabled ? "opacity-60 cursor-not-allowed" : ""}`,
     ghost: `bg-transparent hover:bg-[#282828] text-[#b3b3b3] hover:text-white ${disabled ? "opacity-60 cursor-not-allowed" : ""}`,
   }
 

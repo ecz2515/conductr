@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAlbumStore } from "./store/albumStore"
-function Spinner({ size = "md" }: { size?: "md" | "lg" }) {
+function Spinner({ size = "md", color = "#000000" }: { size?: "md" | "lg", color?: string }) {
   const sizeClasses = {
     md: "w-7 h-7",
     lg: "w-10 h-10"
@@ -13,7 +13,7 @@ function Spinner({ size = "md" }: { size?: "md" | "lg" }) {
     <span className="inline-block align-middle">
       <svg
         className={`animate-spin ${sizeClasses[size]}`}
-        style={{ color: "#1ed760" }}
+        style={{ color }}
         viewBox="0 0 44 44"
         fill="none"
       >
@@ -22,12 +22,12 @@ function Spinner({ size = "md" }: { size?: "md" | "lg" }) {
           cx="22"
           cy="22"
           r="18"
-          stroke="#1ed760"
+          stroke={color}
           strokeWidth="5"
         />
         <path
           d="M40 22c0-9.94-8.06-18-18-18"
-          stroke="#1ed760"
+          stroke={color}
           strokeWidth="5"
           strokeLinecap="round"
           className="opacity-85"
@@ -206,7 +206,7 @@ export default function Home() {
                 disabled={isLoading || isSearching}
                 className="w-full sm:w-auto bg-[#1ed760] hover:bg-[#1db954] text-black font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-all duration-200 hover:scale-105 min-w-[140px] flex items-center justify-center"
               >
-                {isLoading || isSearching ? <Spinner /> : "Search"}
+                {isLoading || isSearching ? <Spinner color="#000000" /> : "Search"}
               </button>
             </form>
           </div>
@@ -245,7 +245,7 @@ export default function Home() {
                     disabled={isSearching}
                     className="bg-[#1ed760] hover:bg-[#1db954] text-black font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-all duration-200 hover:scale-105 min-w-[120px] flex items-center justify-center"
                   >
-                    {isSearching ? <Spinner /> : "Yes"}
+                    {isSearching ? <Spinner color="#000000" /> : "Yes"}
                   </button>
                   <button
                     onClick={handleNo}
@@ -264,7 +264,7 @@ export default function Home() {
         {(isLoading || isSearching) && (
           <div className="flex flex-col items-center mb-12 animate-fade-in">
             <div className="mb-6">
-              <Spinner size="lg" />
+              <Spinner size="lg" color="#ffffff" />
             </div>
             <span className="text-white text-xl text-center max-w-md">
               {isLoading ? "Thinking…" : SEARCH_MESSAGES[searchMsgIdx]}
