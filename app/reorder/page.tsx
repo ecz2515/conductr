@@ -13,77 +13,104 @@ function ReorderContent() {
 
   // Load albums from Zustand by IDs in the URL
   useEffect(() => {
+    console.log("[DEBUG] useEffect triggered with searchParams:", searchParams);
     const ids = searchParams.get("ids")?.split(",").filter(Boolean) ?? [];
+    console.log("[DEBUG] Extracted IDs:", ids);
     const storedAlbums = useAlbumStore.getState().getAlbumsByIds(ids);
+    console.log("[DEBUG] Retrieved stored albums:", storedAlbums);
     const searchContext = useAlbumStore.getState().getSearchContext();
-    
-    console.log('Reorder page - IDs:', ids);
-    console.log('Reorder page - Stored albums:', storedAlbums);
-    console.log('Reorder page - Search context:', searchContext);
+    console.log("[DEBUG] Retrieved search context:", searchContext);
     
     setAlbums(storedAlbums);
     setLoading(false);
+    console.log("[DEBUG] Albums set and loading state updated");
   }, [searchParams]);
 
   function moveUp(index: number) {
-    if (index === 0) return;
+    console.log("[DEBUG] moveUp called with index:", index);
+    if (index === 0) {
+      console.log("[DEBUG] Index is 0, cannot move up");
+      return;
+    }
     setMovingIndex(index);
+    console.log("[DEBUG] Moving index set to:", index);
     setTimeout(() => {
       const newAlbums = [...albums];
       const temp = newAlbums[index];
       newAlbums[index] = newAlbums[index - 1];
       newAlbums[index - 1] = temp;
       setAlbums(newAlbums);
-      setTimeout(() => setMovingIndex(null), 300);
+      console.log("[DEBUG] Albums reordered:", newAlbums);
+      setTimeout(() => {
+        setMovingIndex(null);
+        console.log("[DEBUG] Moving index reset to null");
+      }, 300);
     }, 150);
   }
 
   function moveDown(index: number) {
-    if (index === albums.length - 1) return;
+    console.log("[DEBUG] moveDown called with index:", index);
+    if (index === albums.length - 1) {
+      console.log("[DEBUG] Index is at the last position, cannot move down");
+      return;
+    }
     setMovingIndex(index);
+    console.log("[DEBUG] Moving index set to:", index);
     setTimeout(() => {
       const newAlbums = [...albums];
       const temp = newAlbums[index];
       newAlbums[index] = newAlbums[index + 1];
       newAlbums[index + 1] = temp;
       setAlbums(newAlbums);
-      setTimeout(() => setMovingIndex(null), 300);
+      console.log("[DEBUG] Albums reordered:", newAlbums);
+      setTimeout(() => {
+        setMovingIndex(null);
+        console.log("[DEBUG] Moving index reset to null");
+      }, 300);
     }, 150);
   }
 
   function handleConfirm() {
+    console.log("[DEBUG] handleConfirm called");
     const ids = albums.map(album => album.id).join(",");
-    // Encode the full album data as base64 to pass through URL
+    console.log("[DEBUG] Album IDs for confirmation:", ids);
     const albumData = encodeBase64(JSON.stringify(albums));
-    // Get canonical info from Zustand store
+    console.log("[DEBUG] Encoded album data:", albumData);
     const searchContext = useAlbumStore.getState().getSearchContext();
+    console.log("[DEBUG] Retrieved search context for confirmation:", searchContext);
     let canonicalData = "";
     if (searchContext && searchContext.canonical) {
       canonicalData = encodeBase64(JSON.stringify(searchContext.canonical));
+      console.log("[DEBUG] Encoded canonical data:", canonicalData);
     }
     const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
+    console.log("[DEBUG] Spotify Client ID:", clientId);
     const redirectUri =
       process.env.NODE_ENV === "production"
         ? `${process.env.NEXT_PUBLIC_BASE_URL}/playlist/create`
         : "http://127.0.0.1:3000/playlist/create";
+    console.log("[DEBUG] Redirect URI:", redirectUri);
 
     const scopes = [
       "playlist-modify-public",
       "playlist-modify-private"
     ].join(" ");
-    // Add canonicalData as a third part of the state param
+    console.log("[DEBUG] Spotify scopes:", scopes);
     const stateParts = [ids, albumData, canonicalData];
+    console.log("[DEBUG] State parts for Spotify authorization:", stateParts);
     const spotifyAuthorizeUrl =
       `https://accounts.spotify.com/authorize?response_type=code` +
       `&client_id=${encodeURIComponent(clientId ?? "")}` +
       `&scope=${encodeURIComponent(scopes)}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&state=${encodeURIComponent(stateParts.join("|"))}`;
+    console.log("[DEBUG] Spotify authorization URL:", spotifyAuthorizeUrl);
     window.location.href = spotifyAuthorizeUrl;
   }
   
 
   if (loading) {
+    console.log("[DEBUG] Loading state is true, rendering Spinner");
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#191414] to-[#222326]">
         <Spinner />
@@ -92,6 +119,7 @@ function ReorderContent() {
   }
 
   if (albums.length === 0) {
+    console.log("[DEBUG] No albums found, rendering message");
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#191414] to-[#222326]">
         <div className="text-white text-xl">No albums found. Go back and select recordings.</div>
@@ -99,6 +127,7 @@ function ReorderContent() {
     );
   }
 
+  console.log("[DEBUG] Rendering ReorderContent with albums:", albums);
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-[#191414] to-[#222326] py-10">
       <h1 className="text-2xl sm:text-3xl font-bold text-white mb-8 text-center">
@@ -138,7 +167,10 @@ function ReorderContent() {
             >
               <div className="flex flex-col gap-2 mr-2 p-2 bg-[#191414] rounded-xl border border-[#333]">
                 <button
-                  onClick={() => moveUp(idx)}
+                  onClick={() => {
+                    console.log("[DEBUG] Move up button clicked for index:", idx);
+                    moveUp(idx);
+                  }}
                   disabled={idx === 0}
                   className={`
                     flex items-center justify-center h-8 w-8 rounded-lg
@@ -156,7 +188,10 @@ function ReorderContent() {
                   </svg>
                 </button>
                 <button
-                  onClick={() => moveDown(idx)}
+                  onClick={() => {
+                    console.log("[DEBUG] Move down button clicked for index:", idx);
+                    moveDown(idx);
+                  }}
                   disabled={idx === albums.length - 1}
                   className={`
                     flex items-center justify-center h-8 w-8 rounded-lg
@@ -200,7 +235,10 @@ function ReorderContent() {
         </div>
         <div className="flex gap-4 mt-10 w-full">
           <button
-            onClick={handleConfirm}
+            onClick={() => {
+              console.log("[DEBUG] Confirm Order button clicked");
+              handleConfirm();
+            }}
             className="w-full bg-[#1ed760] hover:bg-[#1db954] text-black font-bold px-6 py-3 rounded-full transition text-lg shadow"
           >
             Confirm Order
@@ -219,6 +257,7 @@ function ReorderContent() {
 }
 
 function LoadingFallback() {
+  console.log("[DEBUG] Rendering LoadingFallback");
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#191414] to-[#222326]">
       <Spinner />
@@ -227,6 +266,7 @@ function LoadingFallback() {
 }
 
 export default function ReorderPage() {
+  console.log("[DEBUG] Rendering ReorderPage");
   return (
     <Suspense fallback={<LoadingFallback />}>
       <ReorderContent />
@@ -235,6 +275,7 @@ export default function ReorderPage() {
 }
 
 function Spinner() {
+  console.log("[DEBUG] Rendering Spinner");
   return (
     <span className="inline-block align-middle">
       <svg
