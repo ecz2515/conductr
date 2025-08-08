@@ -5,6 +5,50 @@ import { useAlbumStore } from "../store/albumStore";
 import type { Album } from "../store/albumStore";
 import { encodeBase64 } from "../utils/base64";
 
+/** ---------- DEBUG HELPERS (display-only; does not affect flow) ---------- */
+function redact(str: string | null | undefined, keep = 6) {
+  if (!str) return "(missing)";
+  if (str.length <= keep) return `…${str}`;
+  return `${"•".repeat(Math.max(0, str.length - keep))}${str.slice(-keep)}`;
+}
+function bytes(str: string) {
+  return new Blob([str]).size;
+}
+function buildSpotifyAuthUrl({
+  clientId,
+  scopes,
+  redirectUri,
+  stateParts,
+}: {
+  clientId: string | undefined;
+  scopes: string;
+  redirectUri: string;
+  stateParts: string[];
+}) {
+  const stateRaw = stateParts.join("|");
+  const url =
+    `https://accounts.spotify.com/authorize?response_type=code` +
+    `&client_id=${encodeURIComponent(clientId ?? "")}` +
+    `&scope=${encodeURIComponent(scopes)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&state=${encodeURIComponent(stateRaw)}`;
+
+  const metrics = {
+    clientId_tail: redact(clientId),
+    redirectUri,
+    scopes,
+    state_parts: stateParts.map((p, i) => ({
+      idx: i,
+      bytes: bytes(p),
+      preview: p.slice(0, 80) + (p.length > 80 ? "…[truncated]" : ""),
+    })),
+    state_total_bytes: bytes(stateRaw),
+    full_url_length: url.length,
+  };
+  return { url, metrics };
+}
+/** ----------------------------------------------------------------------- */
+
 function ReorderContent() {
   const searchParams = useSearchParams();
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -244,6 +288,13 @@ function ReorderContent() {
             Confirm Order
           </button>
         </div>
+
+        {/* ---------- Auth Debug Panel (view-only) ---------- */}
+        {(typeof window !== "undefined" &&
+          (process.env.NODE_ENV !== "production" || searchParams.get("debug") === "1")) && (
+          <AuthDebugPanel albums={albums} />
+        )}
+        {/* ----------------------------------------------- */}
       </div>
       <style jsx global>{`
         @keyframes expand {
@@ -303,5 +354,71 @@ function Spinner() {
         />
       </svg>
     </span>
+  );
+}
+
+/** ---------- View-only panel that mirrors your current handleConfirm ---------- */
+function AuthDebugPanel({ albums }: { albums: Album[] }) {
+  const searchParams = useSearchParams();
+  const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
+  const redirectUri =
+    process.env.NODE_ENV === "production"
+      ? `${process.env.NEXT_PUBLIC_BASE_URL}/playlist/create`
+      : "http://127.0.0.1:3000/playlist/create";
+  const scopes = ["playlist-modify-public", "playlist-modify-private"].join(" ");
+
+  // These lines replicate your handleConfirm inputs exactly
+  const ids = albums.map((a) => a.id).join(",");
+  const albumData = encodeBase64(JSON.stringify(albums));
+  const searchContext = useAlbumStore.getState().getSearchContext();
+  const canonicalData =
+    searchContext?.canonical ? encodeBase64(JSON.stringify(searchContext.canonical)) : "";
+
+  // State format EXACTLY as your current handleConfirm uses
+  const stateParts = [ids, albumData, canonicalData];
+
+  const { url, metrics } = buildSpotifyAuthUrl({
+    clientId,
+    scopes,
+    redirectUri,
+    stateParts,
+  });
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(url);
+    console.log("[AUTH-DEBUG] Copied auth URL to clipboard");
+  };
+
+  const open = () => {
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <div className="mt-6 w-full max-w-xl text-xs text-[#b3b3b3] bg-[#141414] border border-[#333] rounded-xl p-4 space-y-2">
+      <div className="text-white font-semibold">Auth Debug (view-only)</div>
+      <div>Client ID: {redact(clientId)}</div>
+      <div>Redirect URI: {redirectUri}</div>
+      <div>Scopes: {scopes}</div>
+      <div>State total bytes: {metrics.state_total_bytes}</div>
+      <div>Full URL length: {metrics.full_url_length}</div>
+      <div className="space-y-1">
+        {metrics.state_parts.map((p: any) => (
+          <div key={p.idx}>
+            part[{p.idx}] — {p.bytes}B — {p.preview}
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2 pt-2">
+        <button onClick={copy} className="px-3 py-1 rounded bg-[#232323] hover:bg-[#2a2a2a] text-white border border-[#444]">
+          Copy URL
+        </button>
+        <button onClick={open} className="px-3 py-1 rounded bg-[#1ed760] hover:bg-[#1db954] text-black font-semibold">
+          Open URL
+        </button>
+      </div>
+      <div className="pt-1">
+        Tip: add <code>?debug=1</code> to the page URL in production to show this panel.
+      </div>
+    </div>
   );
 }
