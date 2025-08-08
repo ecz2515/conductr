@@ -1,8 +1,7 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { decodeBase64 } from "../../utils/base64"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   PageContainer,
   ContentWrapper,
@@ -15,161 +14,134 @@ import {
   Spinner,
   Alert,
   Footer,
-} from "../../../components/design-system"
+} from "../../../components/design-system";
 
 export default function PlaylistCreatePage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [playlistUrl, setPlaylistUrl] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [currentStep, setCurrentStep] = useState<string>("")
-  const [showPlaylistForm, setShowPlaylistForm] = useState(false)
-  const [playlistName, setPlaylistName] = useState("")
-  const [playlistDescription, setPlaylistDescription] = useState("")
-  const [showToast, setShowToast] = useState(false)
-  const [canonical, setCanonical] = useState<any>(null)
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<string>("");
+  const [showPlaylistForm, setShowPlaylistForm] = useState(false);
+  const [playlistName, setPlaylistName] = useState("");
+  const [playlistDescription, setPlaylistDescription] = useState("");
+  const [showToast, setShowToast] = useState(false);
+
+  // NEW: fetched from server using the short UUID in ?state
+  const [canonical, setCanonical] = useState<any>(null);
+  const [storedAlbums, setStoredAlbums] = useState<any[]>([]);
 
   useEffect(() => {
-    console.log("useEffect triggered")
-    // Extract ?code and ?state from URL
-    const urlParams = new URLSearchParams(window.location.search)
-    const code = urlParams.get("code")
-    const stateParam = urlParams.get("state")
-    console.log("OAuth code:", code, "State:", stateParam)
+    console.log("useEffect triggered");
+    // Extract ?code and ?state (UUID now) from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+    const stateParam = urlParams.get("state"); // UUID
+
+    console.log("OAuth code:", code, "State (UUID):", stateParam);
 
     if (!code || !stateParam) {
-      setError("Missing required information from Spotify. Try again.")
-      return
+      setError("Missing required information from Spotify. Try again.");
+      return;
     }
 
-    // Parse the state parameter which contains IDs, album data, and canonical info
-    const [idsStr, albumDataStr, canonicalDataStr] = stateParam.split("|")
-    const ids = idsStr.split(",").filter(Boolean)
-
-    // Decode album data from base64
-    let storedAlbums = []
-    if (albumDataStr) {
+    // Fetch payload (albums, canonical) that we stashed before redirect
+    (async () => {
       try {
-        const decodedData = decodeBase64(albumDataStr)
-        storedAlbums = JSON.parse(decodedData)
-        console.log("Decoded albums from URL:", storedAlbums)
+        const resp = await fetch(`/api/auth-state?id=${encodeURIComponent(stateParam)}`);
+        if (!resp.ok) {
+          setError("Session expired or invalid. Please go back and try again.");
+          return;
+        }
+        const data = await resp.json(); // { albums, canonical }
+        if (!data?.albums || data.albums.length === 0) {
+          setError("No albums found. Go back and select albums.");
+          return;
+        }
+
+        setStoredAlbums(data.albums);
+        setCanonical(data.canonical ?? null);
+
+        // Set up playlist form using canonical info if available
+        const canonicalObj = data.canonical;
+        if (canonicalObj) {
+          const defaultName = canonicalObj.movement
+            ? `${canonicalObj.composer}: ${canonicalObj.work} - ${canonicalObj.movement}`
+            : `${canonicalObj.composer}: ${canonicalObj.work}`;
+          setPlaylistName(defaultName);
+          setPlaylistDescription(`Created with conductr.dev`);
+          setShowPlaylistForm(true);
+        } else {
+          setError("Canonical info not found. Please go back and try again.");
+        }
       } catch (e) {
-        console.error("Failed to decode album data:", e)
-        setError("Failed to decode album data. Go back and try again.")
-        return
+        console.error("Failed to load saved state:", e);
+        setError("Something went wrong loading your session. Please try again.");
       }
+    })();
+  }, []);
+
+  async function createPlaylist(name: string, description: string, canonicalArg: any) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+
+    if (!code) {
+      setError("Missing required information from Spotify. Try again.");
+      setLoading(false);
+      return;
     }
 
     if (!storedAlbums || storedAlbums.length === 0) {
-      setError("No albums found. Go back and select albums.")
-      return
-    }
-
-    // Decode canonical info from base64 if present
-    let canonicalObj = null
-    if (canonicalDataStr) {
-      try {
-        const decodedCanonical = decodeBase64(canonicalDataStr)
-        canonicalObj = JSON.parse(decodedCanonical)
-        setCanonical(canonicalObj)
-        console.log("Decoded canonical from URL:", canonicalObj)
-      } catch (e) {
-        console.error("Failed to decode canonical data:", e)
-      }
-    }
-
-    // Set up playlist form using canonical info if available
-    if (canonicalObj) {
-      const defaultName = canonicalObj.movement
-        ? `${canonicalObj.composer}: ${canonicalObj.work} - ${canonicalObj.movement}`
-        : `${canonicalObj.composer}: ${canonicalObj.work}`
-      setPlaylistName(defaultName)
-      setPlaylistDescription(`Created with conductr.dev`)
-      setShowPlaylistForm(true)
-    } else {
-      setError("Canonical info not found. Please go back and try again.")
-    }
-  }, [])
-
-  async function createPlaylist(name: string, description: string, canonical: any) {
-    const urlParams = new URLSearchParams(window.location.search)
-    const code = urlParams.get("code")
-    const stateParam = urlParams.get("state")
-
-    if (!code || !stateParam) {
-      setError("Missing required information from Spotify. Try again.")
-      setLoading(false)
-      return
-    }
-
-    // Parse the state parameter which contains both IDs and album data
-    const [idsStr, albumDataStr] = stateParam.split("|")
-    const ids = idsStr.split(",").filter(Boolean)
-
-    // Decode album data from base64
-    let storedAlbums = []
-    if (albumDataStr) {
-      try {
-        const decodedData = decodeBase64(albumDataStr)
-        storedAlbums = JSON.parse(decodedData)
-        console.log("Decoded albums from URL:", storedAlbums)
-      } catch (e) {
-        console.error("Failed to decode album data:", e)
-        setError("Failed to decode album data. Go back and try again.")
-        setLoading(false)
-        return
-      }
-    }
-
-    if (!storedAlbums || storedAlbums.length === 0) {
-      setError("No albums found. Go back and select albums.")
-      setLoading(false)
-      return
+      setError("No albums found. Go back and select albums.");
+      setLoading(false);
+      return;
     }
 
     try {
-      setCurrentStep("Getting Spotify access token...")
+      setCurrentStep("Getting Spotify access token...");
+      setLoading(true);
+
       // 1. Exchange code for access token
       const tokenRes = await fetch("/api/spotify-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
-      })
+      });
 
-      const tokenData = await tokenRes.json()
+      const tokenData = await tokenRes.json();
       if (!tokenData.access_token) {
-        setError("Could not get Spotify access token.")
-        setLoading(false)
-        return
+        setError("Could not get Spotify access token.");
+        setLoading(false);
+        return;
       }
 
       // 2. Clean up URL
-      window.history.replaceState({}, document.title, "/playlist/create")
+      window.history.replaceState({}, document.title, "/playlist/create");
 
-      // 3. Use canonical from argument (from URL)
-      const canonicalInfo = canonical
+      // 3. Use canonical from state (already fetched)
+      const canonicalInfo = canonicalArg;
       if (!canonicalInfo) {
-        setError("Canonical info not found. Please go back and try again.")
-        setLoading(false)
-        return
+        setError("Canonical info not found. Please go back and try again.");
+        setLoading(false);
+        return;
       }
 
-      setCurrentStep("Getting user information...")
+      setCurrentStep("Getting user information...");
       // 4. Get user info
       const userResp = await fetch("https://api.spotify.com/v1/me", {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
-      })
-      const user = await userResp.json()
+      });
+      const user = await userResp.json();
 
-      setCurrentStep("Creating playlist...")
+      setCurrentStep("Creating playlist...");
       // 5. Create playlist with custom name
       const finalPlaylistName =
         name ||
         (canonicalInfo.movement
           ? `${canonicalInfo.composer}: ${canonicalInfo.work} - ${canonicalInfo.movement}`
-          : `${canonicalInfo.composer}: ${canonicalInfo.work}`)
+          : `${canonicalInfo.composer}: ${canonicalInfo.work}`);
 
-      const finalDescription = description || `Created with conductr.dev`
+      const finalDescription = description || `Created with conductr.dev`;
 
       const playlistResp = await fetch(`https://api.spotify.com/v1/users/${user.id}/playlists`, {
         method: "POST",
@@ -182,17 +154,17 @@ export default function PlaylistCreatePage() {
           description: finalDescription,
           public: false,
         }),
-      })
+      });
 
-      const playlist = await playlistResp.json()
+      const playlist = await playlistResp.json();
 
-      setCurrentStep("Analyzing albums with AI...")
+      setCurrentStep("Analyzing albums with AI...");
       // 6. For each album, extract relevant tracks using AI
-      let uris: string[] = []
-      let processedAlbums = 0
+      let uris: string[] = [];
+      let processedAlbums = 0;
 
       for (const album of storedAlbums) {
-        setCurrentStep(`Analyzing album ${processedAlbums + 1} of ${storedAlbums.length}...`)
+        setCurrentStep(`Analyzing album ${processedAlbums + 1} of ${storedAlbums.length}...`);
         try {
           // Use the server-side track extractor API
           const extractResp = await fetch("/api/extract-tracks", {
@@ -204,27 +176,27 @@ export default function PlaylistCreatePage() {
               workTitle: canonicalInfo.work,
               movementTitles: canonicalInfo.movement ? [canonicalInfo.movement] : [],
             }),
-          })
+          });
 
           if (!extractResp.ok) {
-            throw new Error("Track extraction API failed")
+            throw new Error("Track extraction API failed");
           }
 
-          const { uris: albumUris } = await extractResp.json()
-          uris = uris.concat(albumUris)
+          const { uris: albumUris } = await extractResp.json();
+          uris = uris.concat(albumUris);
         } catch (error) {
-          console.error(`Failed to extract tracks from album ${album.id}:`, error)
+          console.error(`Failed to extract tracks from album ${album.id}:`, error);
           // Fallback: add all tracks from the album
           const tracksResp = await fetch(`https://api.spotify.com/v1/albums/${album.id}/tracks`, {
             headers: { Authorization: `Bearer ${tokenData.access_token}` },
-          })
-          const tracks = await tracksResp.json()
-          uris = uris.concat(tracks.items.map((track: any) => track.uri))
+          });
+          const tracks = await tracksResp.json();
+          uris = uris.concat(tracks.items.map((track: any) => track.uri));
         }
-        processedAlbums++
+        processedAlbums++;
       }
 
-      setCurrentStep("Adding tracks to playlist...")
+      setCurrentStep("Adding tracks to playlist...");
       // 7. Add tracks to playlist in chunks of 100 (Spotify's API limit)
       for (let i = 0; i < uris.length; i += 100) {
         await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
@@ -234,14 +206,14 @@ export default function PlaylistCreatePage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ uris: uris.slice(i, i + 100) }),
-        })
+        });
       }
 
-      setPlaylistUrl(playlist.external_urls.spotify)
-      setLoading(false)
+      setPlaylistUrl(playlist.external_urls.spotify);
+      setLoading(false);
     } catch (err: any) {
-      setError("Something went wrong: " + err.message)
-      setLoading(false)
+      setError("Something went wrong: " + err.message);
+      setLoading(false);
     }
   }
 
@@ -258,7 +230,7 @@ export default function PlaylistCreatePage() {
           </div>
         </ContentWrapper>
       </PageContainer>
-    )
+    );
   }
 
   if (playlistUrl) {
@@ -315,11 +287,13 @@ export default function PlaylistCreatePage() {
                   variant="secondary"
                   onClick={async () => {
                     try {
-                      await navigator.clipboard.writeText(playlistUrl)
-                      setShowToast(true)
-                      setTimeout(() => setShowToast(false), 2000)
+                      if (playlistUrl) {
+                        await navigator.clipboard.writeText(playlistUrl);
+                        setShowToast(true);
+                        setTimeout(() => setShowToast(false), 2000);
+                      }
                     } catch (err) {
-                      console.error("Failed to copy link:", err)
+                      console.error("Failed to copy link:", err);
                     }
                   }}
                   className="flex-1 flex items-center justify-center gap-2"
@@ -351,7 +325,7 @@ export default function PlaylistCreatePage() {
           )}
         </ContentWrapper>
       </PageContainer>
-    )
+    );
   }
 
   if (showPlaylistForm) {
@@ -386,10 +360,10 @@ export default function PlaylistCreatePage() {
               <Button
                 size="lg"
                 onClick={() => {
-                  setShowPlaylistForm(false)
-                  setLoading(true)
-                  setCurrentStep("Starting playlist creation...")
-                  createPlaylist(playlistName, playlistDescription, canonical)
+                  setShowPlaylistForm(false);
+                  setLoading(true);
+                  setCurrentStep("Starting playlist creation...");
+                  createPlaylist(playlistName, playlistDescription, canonical);
                 }}
                 className="w-full max-w-xs"
               >
@@ -401,7 +375,7 @@ export default function PlaylistCreatePage() {
           </Card>
         </ContentWrapper>
       </PageContainer>
-    )
+    );
   }
 
   if (error) {
@@ -413,8 +387,8 @@ export default function PlaylistCreatePage() {
           </Alert>
         </ContentWrapper>
       </PageContainer>
-    )
+    );
   }
 
-  return null
+  return null;
 }
