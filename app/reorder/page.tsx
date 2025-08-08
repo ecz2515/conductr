@@ -290,8 +290,7 @@ function ReorderContent() {
         </div>
 
         {/* ---------- Auth Debug Panel (view-only) ---------- */}
-        {(typeof window !== "undefined" &&
-          (process.env.NODE_ENV !== "production" || searchParams.get("debug") === "1")) && (
+        {(typeof window !== "undefined") && (
           <AuthDebugPanel albums={albums} />
         )}
         {/* ----------------------------------------------- */}
