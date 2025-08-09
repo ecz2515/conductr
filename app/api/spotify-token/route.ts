@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }).toString();
 
     // Debug: log exactly what we’re sending (minus secrets)
-    console.log("[spotify-token] redirect_uri used:", redirectUri);
+    console.log("[spotify-token] redirect_uri used in token exchange:", redirectUri);
 
     const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
