@@ -257,7 +257,8 @@ function Spinner() {
 /** ---------- Debug panel (now shows tiny state + short URL) ---------- */
 function AuthDebugPanel({ albums }: { albums: Album[] }) {
   const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
-  const redirectUri = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI;
+  const redirectUri = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI!;
+  console.log("[AUTH] redirectUri actually used:", redirectUri);
   const scopes = "playlist-modify-public playlist-modify-private";
 
   const urlPreview =
