@@ -270,15 +270,15 @@ function AuthDebugPanel({ albums }: { albums: Album[] }) {
 
   return (
     <div className="mt-6 w-full max-w-xl text-xs text-[#b3b3b3] bg-[#141414] border border-[#333] rounded-xl p-4 space-y-2">
-      <div className="text-white font-semibold">Auth Debug (view-only)</div>
-      <div>Client ID: {redact(clientId)}</div>
-      <div>Redirect URI: {redirectUri}</div>
-      <div>Scopes: {scopes}</div>
-      <div>Example URL length (with UUID): {urlPreview.length}</div>
+      <div className="text-white font-semibold">Developer Tools (Technical Details)</div>
+      <div>Client ID (for Spotify API): {redact(clientId)}</div>
+      <div>Redirect URI (callback URL): {redirectUri}</div>
+      <div>Scopes (permissions requested): {scopes}</div>
+      <div>Generated URL length (includes UUID): {urlPreview.length}</div>
       <div className="space-y-1">
-        <div>albums in memory: {albums.length}</div>
+        <div>Albums currently loaded in memory: {albums.length}</div>
       </div>
-      <div className="pt-1">Tip: URL length should be well under 1800 now.</div>
+      <div className="pt-1">Note: These details are for development purposes and are not required for regular use.</div>
     </div>
   );
 }
