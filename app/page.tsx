@@ -169,11 +169,11 @@ export default function Home() {
       {/* Main Content Container */}
       <div
         className={`flex-1 flex flex-col items-center px-4 transition-all duration-700 ${
-          shouldCenter ? "justify-center min-h-screen" : "justify-start pt-16"
+          shouldCenter ? "justify-center min-h-screen" : "justify-start"
         }`}
       >
         {/* Title Section */}
-        <div className={`text-center max-w-4xl ${shouldCenter ? "mb-8 mt-32" : "mb-12"}`}>
+        <div className="text-center max-w-4xl mb-12 pt-16">
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight drop-shadow-lg mb-6">
             {albums && !isSearching && albums.length > 0
               ? "Select recordings to include in your playlist"
