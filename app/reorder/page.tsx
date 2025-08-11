@@ -52,50 +52,35 @@ function ReorderContent() {
   }
 
   async function handleConfirm() {
-    // 1) Build payload to stash server-side
     const searchContext = useAlbumStore.getState().getSearchContext();
     const payload = {
       albums,
       canonical: searchContext?.canonical ?? null,
     };
-
-    // 2) Save payload; get back short UUID
-    const res = await fetch("/api/auth-state", {
+  
+    const res = await fetch("/api/spotify/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+  
     if (!res.ok) {
-      console.error("[reorder] Failed to save auth state");
+      const text = await res.text().catch(() => "");
+      console.error("[reorder] /api/spotify/start failed:", res.status, text);
+      alert("Failed to start Spotify auth. See console for details.");
       return;
     }
-    const { state } = await res.json(); // UUID
-
-    // 3) Build Spotify authorize URL with tiny state only
-    const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID!;
-    const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI!;
-    const scopes = "playlist-modify-public playlist-modify-private";
-
-    if (!clientId || !redirectUri) {
-      console.error("[reorder] Missing NEXT_PUBLIC_SPOTIFY_CLIENT_ID or NEXT_PUBLIC_SPOTIFY_REDIRECT_URI");
+  
+    const { url } = await res.json();
+    if (!url) {
+      console.error("[reorder] Missing URL from /api/spotify/start");
+      alert("Failed to start Spotify auth.");
       return;
     }
-
-    const url =
-      `https://accounts.spotify.com/authorize?response_type=code` +
-      `&client_id=${encodeURIComponent(clientId)}` +
-      `&scope=${encodeURIComponent(scopes)}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&state=${encodeURIComponent(state)}`;
-
-    console.log("[reorder] Auth URL length:", url.length, "bytes:", bytes(url));
-    if (url.length > 1800) {
-      console.error("[reorder] Auth URL unexpectedly long — aborting");
-      return;
-    }
-
-    window.location.href = url; // same-tab
+  
+    window.location.assign(url); // same-tab redirect
   }
+  
 
   if (loading) {
     return (

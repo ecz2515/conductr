@@ -48,7 +48,7 @@ export default function PlaylistCreatePage() {
     // Fetch payload (albums, canonical) that we stashed before redirect
     (async () => {
       try {
-        const resp = await fetch(`/api/auth-state?id=${encodeURIComponent(stateParam)}`);
+        const resp = await fetch(`/api/auth-state?state=${encodeURIComponent(stateParam)}`);
         if (!resp.ok) {
           setError("Session expired or invalid. Please go back and try again.");
           return;
@@ -79,125 +79,139 @@ export default function PlaylistCreatePage() {
         setError("Something went wrong loading your session. Please try again.");
       }
     })();
-  }, []);
+  }, []);  
 
-  async function createPlaylist(name: string, description: string, canonicalArg: any) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-
-    if (!code) {
-      setError("Missing required information from Spotify. Try again.");
+  async function createPlaylist(
+    name: string,
+    description: string,
+    canonicalArg: any
+  ) {
+    if (!canonicalArg) {
+      setError("Canonical info not found. Please go back and try again.");
       setLoading(false);
       return;
     }
-
+  
     if (!storedAlbums || storedAlbums.length === 0) {
       setError("No albums found. Go back and select albums.");
       setLoading(false);
       return;
     }
-
+  
     try {
       setCurrentStep("Getting Spotify access token...");
       setLoading(true);
-
+  
+      // We saved code/state in URL only for the first page load, so now grab code from state
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+      if (!code) {
+        setError("Missing required Spotify authorization code.");
+        setLoading(false);
+        return;
+      }
+  
       // 1. Exchange code for access token
       const tokenRes = await fetch("/api/spotify-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
-
+  
       const tokenData = await tokenRes.json();
       if (!tokenData.access_token) {
         setError("Could not get Spotify access token.");
         setLoading(false);
         return;
       }
-
-      // 2. Clean up URL
+  
+      // 2. Clean up URL (remove code/state from address bar)
       window.history.replaceState({}, document.title, "/playlist/create");
-
-      // 3. Use canonical from state (already fetched)
-      const canonicalInfo = canonicalArg;
-      if (!canonicalInfo) {
-        setError("Canonical info not found. Please go back and try again.");
-        setLoading(false);
-        return;
-      }
-
+  
       setCurrentStep("Getting user information...");
-      // 4. Get user info
+      // 3. Get user info
       const userResp = await fetch("https://api.spotify.com/v1/me", {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       const user = await userResp.json();
-
+  
       setCurrentStep("Creating playlist...");
-      // 5. Create playlist with custom name
+      // 4. Create playlist with custom name
       const finalPlaylistName =
         name ||
-        (canonicalInfo.movement
-          ? `${canonicalInfo.composer}: ${canonicalInfo.work} - ${canonicalInfo.movement}`
-          : `${canonicalInfo.composer}: ${canonicalInfo.work}`);
-
+        (canonicalArg.movement
+          ? `${canonicalArg.composer}: ${canonicalArg.work} - ${canonicalArg.movement}`
+          : `${canonicalArg.composer}: ${canonicalArg.work}`);
+  
       const finalDescription = description || `Created with conductr.dev`;
-
-      const playlistResp = await fetch(`https://api.spotify.com/v1/users/${user.id}/playlists`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: finalPlaylistName,
-          description: finalDescription,
-          public: false,
-        }),
-      });
-
+  
+      const playlistResp = await fetch(
+        `https://api.spotify.com/v1/users/${user.id}/playlists`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: finalPlaylistName,
+            description: finalDescription,
+            public: false,
+          }),
+        }
+      );
+  
       const playlist = await playlistResp.json();
-
+  
       setCurrentStep("Analyzing albums with AI...");
-      // 6. For each album, extract relevant tracks using AI
+      // 5. For each album, extract relevant tracks using AI
       let uris: string[] = [];
       let processedAlbums = 0;
-
+  
       for (const album of storedAlbums) {
-        setCurrentStep(`Analyzing album ${processedAlbums + 1} of ${storedAlbums.length}...`);
+        setCurrentStep(
+          `Analyzing album ${processedAlbums + 1} of ${storedAlbums.length}...`
+        );
         try {
-          // Use the server-side track extractor API
           const extractResp = await fetch("/api/extract-tracks", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               albumId: album.id,
               accessToken: tokenData.access_token,
-              workTitle: canonicalInfo.work,
-              movementTitles: canonicalInfo.movement ? [canonicalInfo.movement] : [],
+              workTitle: canonicalArg.work,
+              movementTitles: canonicalArg.movement
+                ? [canonicalArg.movement]
+                : [],
             }),
           });
-
+  
           if (!extractResp.ok) {
             throw new Error("Track extraction API failed");
           }
-
+  
           const { uris: albumUris } = await extractResp.json();
           uris = uris.concat(albumUris);
         } catch (error) {
-          console.error(`Failed to extract tracks from album ${album.id}:`, error);
+          console.error(
+            `Failed to extract tracks from album ${album.id}:`,
+            error
+          );
           // Fallback: add all tracks from the album
-          const tracksResp = await fetch(`https://api.spotify.com/v1/albums/${album.id}/tracks`, {
-            headers: { Authorization: `Bearer ${tokenData.access_token}` },
-          });
+          const tracksResp = await fetch(
+            `https://api.spotify.com/v1/albums/${album.id}/tracks`,
+            {
+              headers: { Authorization: `Bearer ${tokenData.access_token}` },
+            }
+          );
           const tracks = await tracksResp.json();
           uris = uris.concat(tracks.items.map((track: any) => track.uri));
         }
         processedAlbums++;
       }
-
+  
       setCurrentStep("Adding tracks to playlist...");
-      // 7. Add tracks to playlist in chunks of 100 (Spotify's API limit)
+      // 6. Add tracks to playlist in chunks of 100 (Spotify's API limit)
       for (let i = 0; i < uris.length; i += 100) {
         await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
           method: "POST",
@@ -208,7 +222,7 @@ export default function PlaylistCreatePage() {
           body: JSON.stringify({ uris: uris.slice(i, i + 100) }),
         });
       }
-
+  
       setPlaylistUrl(playlist.external_urls.spotify);
       setLoading(false);
     } catch (err: any) {
@@ -216,6 +230,7 @@ export default function PlaylistCreatePage() {
       setLoading(false);
     }
   }
+  
 
   if (loading) {
     return (
