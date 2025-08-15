@@ -15,6 +15,9 @@ import {
   Alert,
   Footer,
 } from "../../../components/design-system";
+import { logger } from "../../utils/logger";
+
+const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 
 export default function PlaylistCreatePage() {
   const router = useRouter();
@@ -33,10 +36,12 @@ export default function PlaylistCreatePage() {
 
   useEffect(() => {
     console.log("[create] useEffect");
+    logger.info("[create] useEffect");
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
     const stateParam = urlParams.get("state"); // short nonce
-    console.log("[create] code:", code, "state:", stateParam);
+    console.log("[create] code:", Boolean(code), "state:", stateParam);
+    logger.info("[create] code and state", { hasCode: Boolean(code), state: stateParam });
 
     if (!code || !stateParam) {
       setError("Missing required information from Spotify. Try again.");
@@ -46,11 +51,19 @@ export default function PlaylistCreatePage() {
     (async () => {
       try {
         console.log("[create] GET /api/auth-state?id=…");
+        logger.info("[create] GET /api/auth-state", { id: stateParam });
         const resp = await fetch(`/api/auth-state?id=${encodeURIComponent(stateParam)}`);
-        const json = await resp.json().catch(() => ({}));
+        const text = await resp.text();
+        let json: any = {};
+        try { json = text ? JSON.parse(text) : {}; } catch {}
         console.log("[create] /api/auth-state status:", resp.status, {
           albums: Array.isArray(json?.albums) ? json.albums.length : "n/a",
           hasCanonical: !!json?.canonical,
+        });
+        logger.info("[create] /api/auth-state status", { 
+          status: resp.status, 
+          albums: Array.isArray(json?.albums) ? json.albums.length : "n/a",
+          hasCanonical: !!json?.canonical 
         });
 
         if (!resp.ok || !Array.isArray(json?.albums) || json.albums.length === 0) {
@@ -78,13 +91,13 @@ export default function PlaylistCreatePage() {
         }
       } catch (e) {
         console.error("[create] auth-state fetch failed:", e);
+        logger.error("[create] auth-state fetch failed", { error: e });
         setError("Something went wrong loading your session. Please try again.");
       }
     })();
   }, []);
 
   function normalizeUris(raw: any[]): string[] {
-    // Accept spotify URIs or IDs (or convert open.spotify.com/track/<id>)
     const out: string[] = [];
     for (const t of raw || []) {
       if (typeof t === "string") {
@@ -100,12 +113,13 @@ export default function PlaylistCreatePage() {
         out.push(`spotify:track:${t.id}`);
       }
     }
-    return Array.from(new Set(out)); // de-dupe
+    return Array.from(new Set(out));
   }
 
   async function createPlaylist(name: string, description: string, canonicalArg: any) {
     try {
       console.log("[create] start createPlaylist");
+      logger.info("[create] start createPlaylist");
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get("code");
       if (!code) throw new Error("Missing required Spotify authorization code.");
@@ -124,9 +138,16 @@ export default function PlaylistCreatePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
-      const tokenJson = await tokenRes.json().catch(() => ({}));
+
+      const tokenText = await tokenRes.text();
+      let tokenJson: any = {};
+      try { tokenJson = tokenText ? JSON.parse(tokenText) : {}; } catch {}
       console.log("[create] /api/spotify-token status:", tokenRes.status, !!tokenJson?.access_token);
-      if (!tokenRes.ok || !tokenJson?.access_token) throw new Error("Could not get Spotify access token.");
+      logger.info("[create] /api/spotify-token status", { status: tokenRes.status, hasAccessToken: !!tokenJson?.access_token });
+
+      if (!tokenRes.ok || !tokenJson?.access_token) {
+        throw new Error(`Could not get Spotify access token. ${tokenText || ""}`);
+      }
       const accessToken: string = tokenJson.access_token;
 
       // 2) Clean URL
@@ -134,14 +155,19 @@ export default function PlaylistCreatePage() {
 
       // 3) Who am I?
       setCurrentStep("Getting user information…");
-      const meRes = await fetch("https://api.spotify.com/v1/me", {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const meRes = await fetch(`${SPOTIFY_API_BASE}/me`, {
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
       });
-      const meJson = await meRes.json().catch(() => ({}));
+      if (!meRes.ok) {
+        const t = await meRes.text();
+        throw new Error(`[GET /me ${meRes.status}] ${t || "no body"}`);
+      }
+      const meJson = await meRes.json();
       console.log("[create] GET /v1/me status:", meRes.status, !!meJson?.id);
-      if (!meRes.ok || !meJson?.id) throw new Error("Could not fetch Spotify profile.");
+      logger.info("[create] GET /v1/me status", { status: meRes.status, hasUserId: !!meJson?.id });
+      if (!meJson?.id) throw new Error("Could not fetch Spotify profile (no id).");
 
-      // 4) Create playlist
+      // 4) Create playlist (improved error surface)
       setCurrentStep("Creating playlist…");
       const finalName =
         name ||
@@ -150,17 +176,29 @@ export default function PlaylistCreatePage() {
           : `${canonicalArg.composer}: ${canonicalArg.work}`);
       const finalDesc = description || "Created with conductr.dev";
 
-      const plRes = await fetch(`https://api.spotify.com/v1/users/${meJson.id}/playlists`, {
+      const createUrl = `${SPOTIFY_API_BASE}/users/${encodeURIComponent(meJson.id)}/playlists`;
+      const plRes = await fetch(createUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({ name: finalName, description: finalDesc, public: false }),
       });
-      const plJson = await plRes.json().catch(() => ({}));
-      console.log("[create] POST /users/:id/playlists status:", plRes.status, !!plJson?.id);
-      if (!plRes.ok || !plJson?.id) throw new Error(`Playlist create failed: ${JSON.stringify(plJson)}`);
+
+      if (!plRes.ok) {
+        const errText = await plRes.text();
+        throw new Error(`[create playlist ${plRes.status}] ${errText || "no body"}`);
+      }
+
+      let plJson: any;
+      try { plJson = await plRes.json(); } catch {
+        throw new Error("Playlist created but response had no JSON body.");
+      }
+      if (!plJson?.id) throw new Error("Playlist create returned no id.");
+      console.log("[create] playlist id:", plJson.id);
+      logger.info("[create] playlist created", { playlistId: plJson.id });
 
       // 5) Extract tracks per album (server API first; fallback to full album)
       setCurrentStep("Analyzing albums with AI…");
@@ -181,24 +219,42 @@ export default function PlaylistCreatePage() {
               movementTitles: canonicalArg.movement ? [canonicalArg.movement] : [],
             }),
           });
-          const xtJson = await xtRes.json().catch(() => ({}));
+
+          const xtText = await xtRes.text();
+          let xtJson: any = {};
+          try { xtJson = xtText ? JSON.parse(xtText) : {}; } catch {}
+
           console.log("[create] /api/extract-tracks status:", xtRes.status, {
             album: album.id,
             uris: Array.isArray(xtJson?.uris) ? xtJson.uris.length : "n/a",
           });
-          if (!xtRes.ok || !Array.isArray(xtJson?.uris)) throw new Error("extract-tracks failed");
+          logger.info("[create] /api/extract-tracks status", {
+            status: xtRes.status,
+            album: album.id,
+            uris: Array.isArray(xtJson?.uris) ? xtJson.uris.length : "n/a",
+          });
+
+          if (!xtRes.ok || !Array.isArray(xtJson?.uris)) throw new Error(xtText || "extract-tracks failed");
 
           const cleaned = normalizeUris(xtJson.uris);
           if (!cleaned.length) throw new Error("no valid URIs returned");
           uris = uris.concat(cleaned);
         } catch (e) {
           console.warn("[create] extract-tracks failed; fallback to full album:", album.id, e);
+          logger.warn("[create] extract-tracks failed; fallback to full album", { albumId: album.id, error: e });
           const trRes = await fetch(
-            `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=50`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
+            `${SPOTIFY_API_BASE}/albums/${album.id}/tracks?limit=50`,
+            { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } }
           );
-          const trJson = await trRes.json().catch(() => ({}));
+          const trText = await trRes.text();
+          let trJson: any = {};
+          try { trJson = trText ? JSON.parse(trText) : {}; } catch {}
           console.log("[create] GET /albums/:id/tracks status:", trRes.status, {
+            album: album.id,
+            items: Array.isArray(trJson?.items) ? trJson.items.length : "n/a",
+          });
+          logger.info("[create] GET /albums/:id/tracks status", {
+            status: trRes.status,
             album: album.id,
             items: Array.isArray(trJson?.items) ? trJson.items.length : "n/a",
           });
@@ -210,35 +266,46 @@ export default function PlaylistCreatePage() {
       // 6) Finalize and validate URIs
       uris = Array.from(new Set(uris)).filter(u => /^spotify:track:[A-Za-z0-9]{22}$/.test(u));
       console.log("[create] total URIs after normalize/dedupe:", uris.length);
+      logger.info("[create] total URIs after normalize/dedupe", { uriCount: uris.length });
       if (!uris.length) throw new Error("No valid tracks found to add to the playlist.");
 
       // 7) Add tracks in chunks of 100
       setCurrentStep("Adding tracks to playlist…");
       for (let i = 0; i < uris.length; i += 100) {
         const chunk = uris.slice(i, i + 100);
-        const addRes = await fetch(`https://api.spotify.com/v1/playlists/${plJson.id}/tracks`, {
+        const addRes = await fetch(`${SPOTIFY_API_BASE}/playlists/${encodeURIComponent(plJson.id)}/tracks`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
           body: JSON.stringify({ uris: chunk }),
         });
+        if (!addRes.ok) {
+          const addText = await addRes.text();
+          throw new Error(`[add tracks ${addRes.status}] ${addText || "no body"}`);
+        }
         const addJson = await addRes.json().catch(() => ({}));
         console.log("[create] POST add-tracks status:", addRes.status, {
           added: chunk.length,
           snapshot: !!addJson?.snapshot_id,
-          err: addRes.ok ? undefined : addJson,
         });
-        if (!addRes.ok) throw new Error(`Add-tracks failed: ${JSON.stringify(addJson)}`);
+        logger.info("[create] POST add-tracks status", {
+          status: addRes.status,
+          added: chunk.length,
+          snapshot: !!addJson?.snapshot_id,
+        });
       }
 
       setPlaylistUrl(plJson?.external_urls?.spotify ?? null);
       setLoading(false);
       setCurrentStep("");
       console.log("[create] success:", plJson?.id, plJson?.external_urls?.spotify);
+      logger.info("[create] success", { playlistId: plJson?.id, spotifyUrl: plJson?.external_urls?.spotify });
     } catch (err: any) {
       console.error("[create] failed:", err);
+      logger.error("[create] failed", { error: err?.message ?? String(err) });
       setError("Something went wrong: " + (err?.message ?? String(err)));
       setLoading(false);
       setCurrentStep("");
