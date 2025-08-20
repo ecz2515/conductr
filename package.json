@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@supabase/supabase-js": "^2.55.0",
     "@types/string-similarity": "^4.0.2",
     "@upstash/redis": "^1.35.3",
     "axios": "^1.10.0",
@@ -20,6 +21,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "string-similarity": "^4.0.4",
+    "stripe": "^18.4.0",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
