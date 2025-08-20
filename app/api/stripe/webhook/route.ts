@@ -22,15 +22,15 @@ function constructEventWithAnySecret(
   sig: string,
   secretsCSV: string
 ): Stripe.Event {
-  console.debug("[stripe] Constructing event with payload:", payload);
+  console.debug("[stripe] Constructing event with payload.");
   const secrets = secretsCSV.split(",").map((s) => s.trim()).filter(Boolean);
   let lastErr: any;
   for (const sec of secrets) {
     try {
-      console.debug("[stripe] Trying secret:", sec);
-      return stripe.webhooks.constructEvent(payload, sig, sec);
+      const event = stripe.webhooks.constructEvent(payload, sig, sec);
+      console.debug("[stripe] Event successfully constructed with a secret.");
+      return event;
     } catch (e) {
-      console.error("[stripe] Error with secret:", sec, "Error:", e);
       lastErr = e;
     }
   }
