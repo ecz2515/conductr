@@ -3,45 +3,72 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { sb } from "@/lib/supabase-admin";
 
-// Environment variable guards
-if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
-  throw new Error("Missing required environment variables for Stripe integration");
-}
-
-// Stripe SDK (server-side)
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// --- Env guards (at runtime) ---
+const SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const WEBHOOK_SECRETS_CSV = process.env.STRIPE_WEBHOOK_SECRET; // allow comma-separated: whsec_dash,whsec_cli
+if (!SECRET_KEY || !WEBHOOK_SECRETS_CSV) {
+  throw new Error("Missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET");
+}
+
+// Server-side Stripe client
+const stripe = new Stripe(SECRET_KEY);
+
+// Try verifying with any of the comma-separated secrets
+function constructEventWithAnySecret(
+  payload: string | Buffer,
+  sig: string,
+  secretsCSV: string
+): Stripe.Event {
+  console.debug("[stripe] Constructing event with payload:", payload);
+  const secrets = secretsCSV.split(",").map((s) => s.trim()).filter(Boolean);
+  let lastErr: any;
+  for (const sec of secrets) {
+    try {
+      console.debug("[stripe] Trying secret:", sec);
+      return stripe.webhooks.constructEvent(payload, sig, sec);
+    } catch (e) {
+      console.error("[stripe] Error with secret:", sec, "Error:", e);
+      lastErr = e;
+    }
+  }
+  console.error("[stripe] All secrets failed, throwing last error");
+  throw lastErr;
+}
+
 export async function POST(req: NextRequest) {
-  // 1) Verify signature with the raw request body
+  console.debug("[stripe] POST request received with headers:", req.headers);
   const sig = req.headers.get("stripe-signature");
   if (!sig) {
-    console.error("[stripe] Missing signature");
+    console.error("[stripe] ❌ Missing signature");
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
-  const rawBody = Buffer.from(await req.arrayBuffer());
-  let event: Stripe.Event;
+  // Use the raw body (string is fine; Buffer also works)
+  const rawBody = await req.text();
+  console.debug("[stripe] Raw body received:", rawBody);
 
+  let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET!);
-    console.log("[stripe] Event constructed successfully:", event);
-  } catch (err) {
-    console.error("[stripe] Bad signature:", err);
+    event = constructEventWithAnySecret(rawBody, sig, WEBHOOK_SECRETS_CSV!);
+    console.log("[stripe] ✅ Event received:", event.type);
+  } catch (err: any) {
+    console.error("[stripe] ❌ Invalid signature:", err?.message || err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   try {
-    console.log("[stripe] Processing event type:", event.type);
+    console.debug("[stripe] Processing event type:", event.type);
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log("[stripe] Checkout session completed:", session);
+        console.debug("[stripe] Session data:", session);
 
+        // Metadata fields you set when creating the Session
         const spotify_email = (session.metadata?.spotify_email || "").trim().toLowerCase();
-        console.log("[stripe] Spotify email extracted:", spotify_email);
+        console.debug("[stripe] Extracted spotify_email:", spotify_email);
 
         const stripe_customer_id =
           typeof session.customer === "string" ? session.customer : undefined;
@@ -51,14 +78,15 @@ export async function POST(req: NextRequest) {
           typeof session.payment_intent === "string" ? session.payment_intent : undefined;
 
         if (!spotify_email) {
-          console.warn("[stripe] Checkout completed but no spotify_email in metadata");
+          console.warn("[stripe] Checkout completed without metadata.spotify_email");
           break;
         }
 
+        // Flip to 'added' so your /access-gate counter (status='added') increments
         const { error } = await sb.from("access_requests").upsert(
           {
             spotify_email,
-            status: "paid",
+            status: "added", // <-- important for your seat counter
             stripe_customer_id,
             stripe_subscription_id,
             stripe_payment_intent_id,
@@ -66,84 +94,85 @@ export async function POST(req: NextRequest) {
           { onConflict: "spotify_email" }
         );
         if (error) {
-          console.error("[stripe] Database upsert error:", error);
+          console.error("[stripe] DB upsert error:", error);
           throw error;
         }
-
-        console.log("[stripe] Database upsert successful for email:", spotify_email);
+        console.log("[stripe] DB upsert OK for", spotify_email);
         break;
       }
 
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        console.log("[stripe] Subscription deleted:", sub);
-
+        console.debug("[stripe] Subscription data:", sub);
         const stripe_subscription_id = sub.id;
         const stripe_customer_id =
           typeof sub.customer === "string" ? sub.customer : undefined;
 
+        const orFilters = [
+          stripe_subscription_id ? `stripe_subscription_id.eq.${stripe_subscription_id}` : "",
+          stripe_customer_id ? `stripe_customer_id.eq.${stripe_customer_id}` : "",
+        ]
+          .filter(Boolean)
+          .join(",");
+
+        console.debug("[stripe] Constructed OR filters:", orFilters);
+
         const { error } = await sb
           .from("access_requests")
           .update({ status: "canceled" })
-          .or(
-            [
-              stripe_subscription_id ? `stripe_subscription_id.eq.${stripe_subscription_id}` : "",
-              stripe_customer_id ? `stripe_customer_id.eq.${stripe_customer_id}` : "",
-            ]
-              .filter(Boolean)
-              .join(",")
-          );
+          .or(orFilters);
 
         if (error) {
-          console.error("[stripe] Database update error:", error);
+          console.error("[stripe] DB update error (deleted):", error);
           throw error;
         }
-
-        console.log("[stripe] Database update successful for subscription ID:", stripe_subscription_id);
+        console.log("[stripe] Subscription deleted processed:", stripe_subscription_id);
         break;
       }
 
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
-        console.log("[stripe] Subscription updated:", sub);
-
-        const isCanceled =
-          sub.status === "canceled" || sub.status === "incomplete_expired";
-
-        const stripe_subscription_id = sub.id;
-        const stripe_customer_id =
-          typeof sub.customer === "string" ? sub.customer : undefined;
+        console.debug("[stripe] Subscription data:", sub);
+        const isCanceled = sub.status === "canceled" || sub.status === "incomplete_expired";
+        console.debug("[stripe] Subscription isCanceled:", isCanceled);
 
         if (isCanceled) {
+          const stripe_subscription_id = sub.id;
+          const stripe_customer_id =
+            typeof sub.customer === "string" ? sub.customer : undefined;
+
+          const orFilters = [
+            `stripe_subscription_id.eq.${stripe_subscription_id}`,
+            stripe_customer_id ? `stripe_customer_id.eq.${stripe_customer_id}` : "",
+          ]
+            .filter(Boolean)
+            .join(",");
+
+          console.debug("[stripe] Constructed OR filters for update:", orFilters);
+
           const { error } = await sb
             .from("access_requests")
             .update({ status: "canceled" })
-            .or(
-              [
-                `stripe_subscription_id.eq.${stripe_subscription_id}`,
-                stripe_customer_id ? `stripe_customer_id.eq.${stripe_customer_id}` : "",
-              ]
-                .filter(Boolean)
-                .join(",")
-            );
+            .or(orFilters);
+
           if (error) {
-            console.error("[stripe] Database update error on cancellation:", error);
+            console.error("[stripe] DB update error (updated->canceled):", error);
             throw error;
           }
-
-          console.log("[stripe] Subscription cancellation processed for ID:", stripe_subscription_id);
+          console.log("[stripe] Subscription canceled via update:", stripe_subscription_id);
         }
         break;
       }
 
       default:
-        console.log("[stripe] Ignoring unhandled event type:", event.type);
+        console.debug("[stripe] No operation for event type:", event.type);
         break;
     }
 
-    return NextResponse.json({ received: true });
-  } catch (err) {
-    console.error("[stripe] Webhook handling error:", err);
-    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (err: any) {
+    // Return 200 to avoid Stripe retry storms for app-side errors
+    console.error("[stripe] Handler error:", err);
+    return NextResponse.json({ ok: true }, { status: 200 });
   }
 }
