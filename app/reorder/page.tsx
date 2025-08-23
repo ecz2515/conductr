@@ -235,8 +235,6 @@ function ReorderContent() {
             Confirm Order
           </button>
         </div>
-
-        <AuthDebugPanel albums={albums} />
       </div>
 
       <style jsx global>{`
@@ -277,31 +275,4 @@ function Spinner() {
   );
 }
 
-/** ---------- Debug panel (now shows tiny state + short URL) ---------- */
-function AuthDebugPanel({ albums }: { albums: Album[] }) {
-  const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
-  const redirectUri = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI!;
-  console.log("[AUTH] redirectUri actually used:", redirectUri);
-  const scopes = "playlist-modify-public playlist-modify-private";
 
-  const urlPreview =
-    `https://accounts.spotify.com/authorize?response_type=code` +
-    `&client_id=${encodeURIComponent(clientId ?? "")}` +
-    `&scope=${encodeURIComponent(scopes)}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri ?? "")}` +
-    `&state=${encodeURIComponent("UUID-GOES-HERE")}`;
-
-  return (
-    <div className="mt-6 w-full max-w-xl text-xs text-[#b3b3b3] bg-[#141414] border border-[#333] rounded-xl p-4 space-y-2">
-      <div className="text-white font-semibold">Developer Tools (Technical Details)</div>
-      <div>Client ID (for Spotify API): {redact(clientId)}</div>
-      <div>Redirect URI (callback URL): {redirectUri}</div>
-      <div>Scopes (permissions requested): {scopes}</div>
-      <div>Generated URL length (includes UUID): {urlPreview.length}</div>
-      <div className="space-y-1">
-        <div>Albums currently loaded in memory: {albums.length}</div>
-      </div>
-      <div className="pt-1">Note: These details are for development purposes and are not required for regular use.</div>
-    </div>
-  );
-}
