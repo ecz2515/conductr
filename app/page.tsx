@@ -196,7 +196,7 @@ export default function Home() {
         }`}
       >
         {/* Title Section */}
-        <div className="text-center max-w-4xl mb-12 pt-16">
+        <div className="text-center max-w-4xl mb-12 mt-12 pt-16">
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight drop-shadow-lg mb-6">
             {albums && !isSearching && albums.length > 0
               ? "Select recordings to include in your playlist"

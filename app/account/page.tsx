@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   PageContainer,
   ContentWrapper,
@@ -76,7 +77,15 @@ export default function AccountPage() {
             </form>
           )}
 
-          <Footer />
+          <div className="flex flex-col items-center space-y-6">
+            <Footer />
+            
+            <Link href="/">
+              <Button variant="secondary" size="sm">
+                ← Back to Home
+              </Button>
+            </Link>
+          </div>
         </Card>
       </ContentWrapper>
     </PageContainer>

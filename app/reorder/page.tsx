@@ -138,7 +138,7 @@ function ReorderContent() {
         </a>
       </div>
 
-      <h1 className="text-2xl sm:text-3xl font-bold text-white mb-8 text-center">Arrange Your Recordings</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-white mb-8 mt-12 text-center">Arrange Your Recordings</h1>
       <div
         className="w-full flex flex-col items-center transition-all duration-700 animate-expand"
         style={{ maxWidth: "36rem", paddingLeft: "0.75rem", paddingRight: "0.75rem" }}
