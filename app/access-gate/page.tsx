@@ -85,7 +85,7 @@ export default async function AccessGatePage({
       </div>
 
       <ContentWrapper maxWidth="xl" className="py-8">
-        <div className="space-y-6">
+        <div className="space-y-6 mt-12">
           {/* Header Section */}
           <div className="text-center space-y-3">
             <PageTitle>Invite‑Only Access (Limited by Spotify)</PageTitle>
