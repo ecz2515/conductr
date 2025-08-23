@@ -1,6 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import {
+  PageContainer,
+  ContentWrapper,
+  Card,
+  Button,
+  Input,
+  PageTitle,
+  PageSubtitle,
+  Alert,
+  Footer,
+} from "../../components/design-system";
 
 export default function AccountPage() {
   const [email, setEmail] = useState("");
@@ -28,35 +39,46 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 space-y-4">
-      <h1 className="text-xl font-semibold">Account & Billing</h1>
+    <PageContainer centered>
+      <ContentWrapper maxWidth="md">
+        <Card variant="elevated" className="p-8 animate-expand animate-fade-in">
+          <div className="text-center mb-8">
+            <PageTitle className="mb-4">Account & Billing</PageTitle>
+            <PageSubtitle>Manage your subscription and billing preferences</PageSubtitle>
+          </div>
 
-      {sent ? (
-        <div className="rounded-lg border p-3 bg-green-50">
-          If an account exists for that email, we’ve sent a secure link to manage billing.
-          Please check your inbox.
-        </div>
-      ) : (
-        <form onSubmit={sendLink} className="space-y-3">
-          <label className="block text-sm">Enter your email to receive a secure billing link:</label>
-          <input
-            type="email"
-            required
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded border px-3 py-2"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded px-4 py-2 border"
-          >
-            {loading ? "Sending..." : "Email me a billing link"}
-          </button>
-          {err && <div className="text-sm text-red-600">{err}</div>}
-        </form>
-      )}
-    </div>
+          {sent ? (
+            <Alert variant="success" className="mb-8">
+              If an account exists for that email, we've sent a secure link to manage billing.
+              Please check your inbox.
+            </Alert>
+          ) : (
+            <form onSubmit={sendLink} className="space-y-6 mb-8">
+              <Input
+                label="Email Address"
+                type="email"
+                required
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              
+              <Button
+                type="submit"
+                loading={loading}
+                size="lg"
+                className="w-full"
+              >
+                {loading ? "Sending..." : "Email me a billing link"}
+              </Button>
+
+              {err && <Alert variant="error">{err}</Alert>}
+            </form>
+          )}
+
+          <Footer />
+        </Card>
+      </ContentWrapper>
+    </PageContainer>
   );
 }
