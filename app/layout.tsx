@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Conductr | Spotify Playlist Builder",
-  description: "Conductr fixes Spotify’s broken classical search by using API filtering and metadata parsing to instantly assemble playlists of complete recordings",
+  description: "Conductr fixes Spotify's broken classical search by using API filtering and metadata parsing to instantly assemble playlists of complete recordings",
+  icons: {
+    icon: "/favicon.svg",
+  }
 };
 
 export default function RootLayout({
