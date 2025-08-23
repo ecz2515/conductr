@@ -23,7 +23,7 @@ export default async function ThankYou({
         : "Payment received";
     const body =
       mode === "waitlist"
-        ? "We'll email you if a seat opens up."
+        ? "We'll email you if a seat opens up, or if access becomes available."
         : "We'll manually add your Spotify email to our allowlist and notify you when you're in. If we can't add you within 7 days, you'll be refunded automatically.";
   
     return (
