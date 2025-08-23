@@ -28,6 +28,29 @@ export default async function ThankYou({
   
     return (
       <PageContainer centered>
+        {/* Account Icon - Fixed Position */}
+        <div className="fixed top-6 right-6 z-50">
+          <a
+            href="/account"
+            className="flex items-center justify-center w-12 h-12 bg-[#181818] hover:bg-[#232323] rounded-full shadow-lg border border-[#282828] transition-all duration-200 hover:scale-110 group"
+            aria-label="Account & Billing"
+          >
+            <svg
+              className="w-6 h-6 text-[#b3b3b3] group-hover:text-white transition-colors duration-200"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              />
+            </svg>
+          </a>
+        </div>
+
         <ContentWrapper maxWidth="md">
           <Card variant="elevated" className="p-8 text-center animate-expand animate-fade-in">
             <div className="mb-6 flex justify-center">
