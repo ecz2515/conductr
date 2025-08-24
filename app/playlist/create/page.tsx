@@ -187,6 +187,10 @@ export default function PlaylistCreatePage() {
         body: JSON.stringify({ name: finalName, description: finalDesc, public: false }),
       });
 
+      if (plRes.status === 403) {
+        router.push("/access-gate");
+        return;
+      }
       if (!plRes.ok) {
         const errText = await plRes.text();
         throw new Error(`[create playlist ${plRes.status}] ${errText || "no body"}`);
