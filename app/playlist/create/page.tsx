@@ -158,6 +158,12 @@ export default function PlaylistCreatePage() {
       const meRes = await fetch(`${SPOTIFY_API_BASE}/me`, {
         headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
       });
+      if (meRes.status === 403) {
+        console.log("[create] 403 detected on /me, redirecting to access-gate");
+        logger.info("[create] 403 detected on /me, redirecting to access-gate");
+        router.push("/access-gate");
+        return;
+      }
       if (!meRes.ok) {
         const t = await meRes.text();
         throw new Error(`[GET /me ${meRes.status}] ${t || "no body"}`);
